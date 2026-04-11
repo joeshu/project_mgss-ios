@@ -21,12 +21,10 @@ jobs:
       
       - name: Install dependencies
         run: |
-          cd project_mgss-ios
           xcodegen
       
       - name: Build IPA
         run: |
-          cd project_mgss-ios
           xcodebuild -project ProjectMGSS.xcodeproj \
             -scheme ProjectMGSS \
             -configuration Release \
@@ -36,7 +34,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             build
-          
+
           # Export IPA
           xcodebuild -exportArchive \
             -archivePath ProjectMGSS.xcarchive \
