@@ -1,0 +1,58 @@
+name: Build Unsigned IPA
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup XcodeGen
+        run: |
+          brew install xcodegen
+      
+      - name: Install dependencies
+        run: |
+          cd project_mgss-ios
+          xcodegen
+      
+      - name: Build IPA
+        run: |
+          cd project_mgss-ios
+          xcodebuild -project ProjectMGSS.xcodeproj \
+            -scheme ProjectMGSS \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath ProjectMGSS.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          
+          # Export IPA
+          xcodebuild -exportArchive \
+            -archivePath ProjectMGSS.xcarchive \
+            -exportPath ./artifacts \
+            -exportOptionsPlist ExportOptions.plist
+      
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjectMGSS
+          path: project_mgss-ios/artifacts/*.ipa
+          retention-days: 30
+      
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: project_mgss-ios/build.log || true

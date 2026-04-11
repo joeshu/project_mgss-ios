@@ -1,0 +1,5 @@
+project_name: ProjectMGSS
+artifact_name: ProjectMGSS
+workflow_name: build-unsigned-ipa
+project_owner: joeshu
+repository_name: project_mgss-ios
