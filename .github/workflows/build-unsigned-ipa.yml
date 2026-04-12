@@ -21,7 +21,9 @@ jobs:
       
       - name: Install dependencies
         run: |
-          xcodegen generate --spec project.yml
+          pwd
+          ls -la
+          xcodegen --spec project.yml
           ls -la
       
       - name: Build IPA
