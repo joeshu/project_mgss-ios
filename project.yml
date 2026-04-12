@@ -18,12 +18,7 @@ targets:
     sources:
       - Sources
     resources:
-      - Assets.xcassets
       - Resources
-    scheme:
-      testTargets:
-        - ProjectMGSSTests
-      gatherCoverageData: true
     info:
       path: Info.plist
       properties:
@@ -40,12 +35,3 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-
-targets:
-  ProjectMGSSTests:
-    type: bundle.unit-test
-    platform: iOS
-    sources:
-      - Tests
-    dependencies:
-      - target: ProjectMGSS
