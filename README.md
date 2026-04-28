@@ -32,16 +32,23 @@ brew install xcodegen
 # 生成项目
 xcodegen
 
-# 构建
-xcodebuild -project ProjectMGSS.xcodeproj \
+# 构建 unsigned app bundle
+xcodebuild clean build \
+  -project ProjectMGSS.xcodeproj \
   -scheme ProjectMGSS \
   -configuration Release \
   -sdk iphoneos \
-  -archivePath ProjectMGSS.xcarchive \
+  -derivedDataPath build \
   CODE_SIGN_IDENTITY="" \
   CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGNING_ALLOWED=NO \
-  build
+  CODE_SIGNING_ALLOWED=NO
+
+# 本地打包 unsigned IPA（与 GitHub Actions 流程一致）
+APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" -type d | head -1)
+mkdir -p artifacts/Payload
+cp -R "$APP_PATH" artifacts/Payload/
+(cd artifacts && zip -qry ProjectMGSS-unsigned.ipa Payload)
+rm -rf artifacts/Payload
 ```
 
 ## CI/CD
