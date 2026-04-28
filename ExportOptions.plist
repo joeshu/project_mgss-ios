@@ -3,21 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>app-store</string>
-    <key>teamID</key>
-    <string>YOUR_TEAM_ID</string>
-    <key>uploadBitcode</key>
-    <false/>
+    <string>development</string>
     <key>compileBitcode</key>
     <false/>
     <key>signingStyle</key>
-    <string>manual</string>
-    <key>signingCertificate</key>
-    <string>iPhone Developer</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>com.xiaopan.projectmgss</key>
-        <string>YOUR_PROVISIONING_PROFILE_NAME</string>
-    </dict>
+    <string>automatic</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
 </dict>
 </plist>

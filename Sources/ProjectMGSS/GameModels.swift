@@ -76,10 +76,10 @@ struct Turret: Codable {
     var lastShot: Date
     var cooldown: TimeInterval
     
-    init(position: Position) {
+    init(position: Position, range: Float = 5.0, damage: Float = 50.0) {
         self.position = position
-        self.range = 5.0
-        self.damage = 50.0
+        self.range = range
+        self.damage = damage
         self.lastShot = Date.distantPast
         self.cooldown = 1.0
     }

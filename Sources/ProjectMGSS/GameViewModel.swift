@@ -36,6 +36,11 @@ class GameViewModel: ObservableObject {
             gameStatus: self.gameStatus
         )
         self.gameScene = GameScene(gameState: initialState)
+        self.gameScene.onStateChange = { [weak self] state in
+            Task { @MainActor in
+                self?.applyGameState(state)
+            }
+        }
     }
 
     func startGame() {
@@ -60,17 +65,36 @@ class GameViewModel: ObservableObject {
         startGame()
     }
 
-    func addTurret(at position: Position) {
-        let turret = Turret(position: position)
+    func addTurret(at position: Position, cost: Int = 500, range: Float = 5.0, damage: Float = 50.0) {
+        guard playerGold >= cost else { return }
+
+        let turret = Turret(position: position, range: range, damage: damage)
         turrets.append(turret)
+        playerGold -= cost
         updateGameState()
     }
 
     func repairDoor() {
+        let repairCost = 300
+        guard playerGold >= repairCost else { return }
+
         let repairAmount: Float = 500.0
         doorHealth = min(doorMaxHealth, doorHealth + repairAmount)
+        playerGold -= repairCost
         player.doorHealth = doorHealth
         updateGameState()
+    }
+
+    private func applyGameState(_ state: GameState) {
+        player = state.player
+        ghost = state.ghost
+        turrets = state.turrets
+        items = state.items
+        gameTime = state.gameTime
+        gameStatus = state.gameStatus
+        playerGold = state.player.gold
+        doorHealth = state.player.doorHealth
+        doorMaxHealth = state.player.doorMaxHealth
     }
 
     func updateGameState() {

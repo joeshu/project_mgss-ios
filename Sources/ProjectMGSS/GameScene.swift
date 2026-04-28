@@ -8,6 +8,8 @@ final class GameScene: SKScene {
         }
     }
 
+    var onStateChange: ((GameState) -> Void)?
+
     private var playerNode = SKShapeNode(circleOfRadius: 18)
     private var ghostNode = SKShapeNode(circleOfRadius: 20)
     private var doorNode = SKShapeNode(rectOf: CGSize(width: 90, height: 20), cornerRadius: 6)
@@ -64,6 +66,7 @@ final class GameScene: SKScene {
         lastTickTime = currentTime
 
         advanceGameOneSecond()
+        onStateChange?(gameState)
         renderScene()
     }
 

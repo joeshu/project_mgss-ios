@@ -9,7 +9,7 @@ struct ShopView: View {
             List {
                 Section(header: Text("防御塔")) {
                     Button(action: {
-                        viewModel.addTurret(at: Position(x: 2.0, y: 2.0))
+                        viewModel.addTurret(at: Position(x: 2.0, y: 2.0), cost: 500, range: 5.0, damage: 50.0)
                     }) {
                         HStack {
                             VStack(alignment: .leading) {
@@ -28,7 +28,7 @@ struct ShopView: View {
                     .disabled(viewModel.playerGold < 500)
                     
                     Button(action: {
-                        viewModel.addTurret(at: Position(x: 4.0, y: 2.0))
+                        viewModel.addTurret(at: Position(x: 4.0, y: 2.0), cost: 1500, range: 6.0, damage: 100.0)
                     }) {
                         HStack {
                             VStack(alignment: .leading) {

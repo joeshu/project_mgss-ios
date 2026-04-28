@@ -26,23 +26,30 @@ jobs:
           xcodegen --spec project.yml
           ls -la
       
-      - name: Build IPA
+      - name: Build unsigned app bundle
         run: |
-          xcodebuild -project ProjectMGSS.xcodeproj \
+          set -o pipefail
+          xcodebuild clean build \
+            -project ProjectMGSS.xcodeproj \
             -scheme ProjectMGSS \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath ProjectMGSS.xcarchive \
+            -derivedDataPath build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            2>&1 | tee build.log
 
-          # Export IPA
-          xcodebuild -exportArchive \
-            -archivePath ProjectMGSS.xcarchive \
-            -exportPath ./artifacts \
-            -exportOptionsPlist ExportOptions.plist
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found" | tee -a build.log
+            exit 1
+          fi
+
+          mkdir -p artifacts/Payload
+          cp -R "$APP_PATH" artifacts/Payload/
+          (cd artifacts && zip -qry ProjectMGSS-unsigned.ipa Payload)
+          rm -rf artifacts/Payload
       
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
