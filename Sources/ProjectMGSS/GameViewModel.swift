@@ -17,23 +17,30 @@ class GameViewModel: ObservableObject {
     let gameScene: GameScene
 
     init() {
-        self.player = Player()
-        self.ghost = Ghost()
-        self.turrets = []
-        self.items = []
-        self.gameTime = 0
-        self.gameStatus = .playing
-        self.playerGold = 0
-        self.doorHealth = 1000.0
-        self.doorMaxHealth = 1000.0
+        let initialPlayer = Player()
+        let initialGhost = Ghost()
+        let initialTurrets: [Turret] = []
+        let initialItems: [Item] = []
+        let initialGameTime = 0
+        let initialGameStatus = GameStatus.playing
+
+        self.player = initialPlayer
+        self.ghost = initialGhost
+        self.turrets = initialTurrets
+        self.items = initialItems
+        self.gameTime = initialGameTime
+        self.gameStatus = initialGameStatus
+        self.playerGold = initialPlayer.gold
+        self.doorHealth = initialPlayer.doorHealth
+        self.doorMaxHealth = initialPlayer.doorMaxHealth
 
         let initialState = GameState(
-            player: self.player,
-            ghost: self.ghost,
-            turrets: self.turrets,
-            items: self.items,
-            gameTime: self.gameTime,
-            gameStatus: self.gameStatus
+            player: initialPlayer,
+            ghost: initialGhost,
+            turrets: initialTurrets,
+            items: initialItems,
+            gameTime: initialGameTime,
+            gameStatus: initialGameStatus
         )
         self.gameScene = GameScene(gameState: initialState)
         self.gameScene.onStateChange = { [weak self] state in
