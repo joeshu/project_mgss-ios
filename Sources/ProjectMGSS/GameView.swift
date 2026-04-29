@@ -101,12 +101,27 @@ struct GameView: View {
     }
 
     private func choosingRoomTopInset(compact: Bool, metrics: PhoneMetrics) -> some View {
-        VStack(spacing: compact ? 6 : 8) {
-            topHeadlineRow(compact: compact)
+        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("选择宿舍")
+                        .font(compact ? .subheadline.bold() : .headline.bold())
+                        .foregroundColor(.white)
+                    Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.76))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
+                }
+                Spacer(minLength: 8)
+                Text("选房准备")
+                    .font(compact ? .caption.bold() : .subheadline.bold())
+                    .foregroundColor(.yellow)
+            }
+
             HStack(spacing: 8) {
-                resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
-                resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
-                resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
+                choosingRoomBadge(title: "候选房间", value: "\(gameViewModel.availableRooms.count)", tint: .yellow)
+                choosingRoomBadge(title: "当前房间", value: gameViewModel.selectedRoom.name, tint: .cyan)
             }
         }
         .padding(.horizontal, metrics.horizontalPadding)
@@ -194,7 +209,7 @@ struct GameView: View {
 
     private func roomChoiceDeck(compact: Bool) -> some View {
         VStack(spacing: compact ? 8 : 10) {
-            roomChoiceHeader(compact: compact)
+            roomDiagramLocator(compact: compact)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
                 ForEach(gameViewModel.availableRooms) { room in
@@ -202,6 +217,7 @@ struct GameView: View {
                 }
             }
 
+            roomSelectionConfirmation(compact: compact)
             beginNightButton(compact: compact)
         }
         .padding(compact ? 10 : 12)
@@ -210,43 +226,97 @@ struct GameView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    private func roomChoiceHeader(compact: Bool) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("选一个房间入住")
-                    .font(compact ? .caption.bold() : .headline.bold())
-                Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
+    private func roomDiagramLocator(compact: Bool) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "map.fill")
+                .font(compact ? .caption.bold() : .subheadline.bold())
+                .foregroundColor(.cyan)
+                .frame(width: compact ? 18 : 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("宿舍方位参考")
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+                Text("左下最稳，右上收益最高；中间区域示意仅作定位参考。")
                     .font(.caption2)
-                    .opacity(0.76)
+                    .foregroundColor(.white.opacity(0.72))
                     .lineLimit(2)
+                    .minimumScaleFactor(0.8)
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .foregroundColor(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, compact ? 7 : 8)
+        .background(Color.white.opacity(0.06))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.cyan.opacity(0.28), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func roomCard(_ room: DormRoom, compact: Bool) -> some View {
-        Button(action: { gameViewModel.chooseRoom(room) }) {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack {
-                    Text(room.name).font(.caption.bold()).lineLimit(1).minimumScaleFactor(0.75)
-                    Spacer()
-                    Text("风险 \(room.risk)")
+        let isSelected = room.id == gameViewModel.selectedRoom.id
+
+        return Button(action: { gameViewModel.chooseRoom(room) }) {
+            VStack(alignment: .leading, spacing: compact ? 7 : 8) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(room.name)
+                        .font(compact ? .caption.bold() : .subheadline.bold())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                    Spacer(minLength: 0)
+                    Text(isSelected ? "已选" : "可选")
                         .font(.caption2.bold())
-                        .foregroundColor(room.id == gameViewModel.selectedRoom.id ? .black : .yellow)
+                        .foregroundColor(isSelected ? .black : .yellow)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(isSelected ? Color.white.opacity(0.92) : Color.yellow.opacity(0.14))
+                        .clipShape(Capsule())
                 }
-                Text("收益 +\(room.rewardBonus)/秒 · 门 \(Int(room.doorBonus))")
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
+
+                roomCardMetricRow(title: "标签", value: roomTag(for: room), valueColor: isSelected ? .black.opacity(0.88) : .white.opacity(0.90))
+                roomCardMetricRow(title: "风险", value: "\(room.risk) 级", valueColor: roomRiskColor(for: room))
+                roomCardMetricRow(title: "金币产出", value: roomRewardText(for: room), valueColor: isSelected ? .black.opacity(0.88) : .green)
+                roomCardMetricRow(title: "初始门耐久", value: roomDoorHealthText(for: room), valueColor: isSelected ? .black.opacity(0.88) : .cyan)
             }
-            .frame(maxWidth: .infinity, minHeight: compact ? 50 : 58)
-            .padding(8)
-            .foregroundColor(room.id == gameViewModel.selectedRoom.id ? .black : .white)
-            .background(room.id == gameViewModel.selectedRoom.id ? Color.yellow : Color.white.opacity(0.10))
-            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(compact ? 10 : 12)
+            .foregroundColor(isSelected ? .black : .white)
+            .background(isSelected ? Color.yellow : Color.white.opacity(0.10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(isSelected ? Color.yellow.opacity(0.95) : Color.white.opacity(0.12), lineWidth: isSelected ? 1.5 : 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+
+    private func roomSelectionConfirmation(compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("入住确认")
+                .font(.caption.bold())
+                .foregroundColor(.white.opacity(0.72))
+            Text("已选择：\(gameViewModel.selectedRoom.name)")
+                .font(compact ? .caption.bold() : .subheadline.bold())
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text("\(roomTag(for: gameViewModel.selectedRoom)) · \(roomRewardText(for: gameViewModel.selectedRoom)) · \(roomDoorHealthText(for: gameViewModel.selectedRoom))")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.76))
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, compact ? 8 : 10)
+        .background(Color.green.opacity(0.12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.green.opacity(0.42), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func beginNightButton(compact: Bool) -> some View {
@@ -519,6 +589,65 @@ struct GameView: View {
         .padding(.vertical, 6)
         .background(tint.opacity(0.16))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func choosingRoomBadge(title: String, value: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.68))
+            Text(value)
+                .font(.caption.bold())
+                .foregroundColor(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(tint.opacity(0.14))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func roomCardMetricRow(title: String, value: String, valueColor: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.68))
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.caption.bold())
+                .foregroundColor(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.74)
+        }
+    }
+
+    private func roomTag(for room: DormRoom) -> String {
+        switch room.risk {
+        case 1: return "稳健开局"
+        case 2: return "均衡发育"
+        case 3: return "近门压迫"
+        default: return "高收益高压"
+        }
+    }
+
+    private func roomRiskColor(for room: DormRoom) -> Color {
+        switch room.risk {
+        case 1: return .green
+        case 2: return .yellow
+        case 3: return .orange
+        default: return .red
+        }
+    }
+
+    private func roomRewardText(for room: DormRoom) -> String {
+        room.rewardBonus > 0 ? "+\(room.rewardBonus)/秒" : "基础产出"
+    }
+
+    private func roomDoorHealthText(for room: DormRoom) -> String {
+        let initialDoorHealth = Int(max(700.0, 900.0 + room.doorBonus))
+        return "\(initialDoorHealth)"
     }
 
     private func resourceChip(icon: String, title: String, value: String, tint: Color) -> some View {
