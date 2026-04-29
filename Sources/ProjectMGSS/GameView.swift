@@ -21,23 +21,18 @@ struct GameView: View {
 
                     SpriteView(scene: gameViewModel.gameScene, options: [.allowsTransparency])
                         .ignoresSafeArea()
-
-                    VStack(spacing: metrics.verticalSpacing) {
-                        topHud(compact: metrics.isCompactPhone)
-                        urgentCoachStrip(compact: metrics.isCompactPhone)
-                        Spacer(minLength: metrics.scenePeekHeight)
-                        if gameViewModel.phase == .choosingRoom {
-                            roomChoiceDeck(compact: metrics.isCompactPhone)
-                        } else {
-                            bottomCommandDeck(compact: metrics.isCompactPhone)
-                        }
-                    }
-                    .padding(.horizontal, metrics.horizontalPadding)
-                    .padding(.top, max(8, metrics.safeArea.top + 4))
-                    .padding(.bottom, max(8, metrics.safeArea.bottom + 8))
+                }
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    topInsetContent(metrics: metrics)
+                }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    bottomInsetContent(metrics: metrics)
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(.hidden, for: .navigationBar)
+                .overlay(alignment: .top) {
+                    gameplayOverlay(metrics: metrics)
+                }
                 .overlay(alignment: .center) {
                     if gameViewModel.gameStatus != .playing {
                         resultOverlay
@@ -47,143 +42,169 @@ struct GameView: View {
                     ShopView(viewModel: gameViewModel)
                         .presentationDetents([.medium, .large])
                         .presentationDragIndicator(.visible)
+                        .presentationBackgroundInteraction(.enabled)
                 }
                 .sheet(isPresented: $isRulesPresented) {
                     ItemsView(viewModel: gameViewModel)
                         .presentationDetents([.medium, .large])
                         .presentationDragIndicator(.visible)
+                        .presentationBackgroundInteraction(.enabled)
                 }
             }
         }
         .dynamicTypeSize(.xSmall ... .accessibility2)
     }
 
-    private func topHud(compact: Bool) -> some View {
-        VStack(spacing: compact ? 6 : 8) {
+    @ViewBuilder
+    private func topInsetContent(metrics: PhoneMetrics) -> some View {
+        let compact = metrics.isCompactPhone
+        if gameViewModel.phase == .choosingRoom {
+            choosingRoomTopInset(compact: compact, metrics: metrics)
+        } else {
+            nightDefenseTopInset(compact: compact, metrics: metrics)
+        }
+    }
+
+    @ViewBuilder
+    private func bottomInsetContent(metrics: PhoneMetrics) -> some View {
+        let compact = metrics.isCompactPhone
+        if gameViewModel.phase == .choosingRoom {
+            choosingRoomBottomInset(compact: compact, metrics: metrics)
+        } else {
+            nightDefenseBottomInset(compact: compact, metrics: metrics)
+        }
+    }
+
+    @ViewBuilder
+    private func gameplayOverlay(metrics: PhoneMetrics) -> some View {
+        if shouldShowCriticalOverlay {
             HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("夜半宿舍防线")
-                        .font(compact ? .subheadline.bold() : .headline.bold())
-                        .foregroundColor(.white)
-                    Text(phaseSubtitle)
-                        .font(.caption2)
-                        .foregroundColor(phaseTint)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 3) {
-                    Text(gameViewModel.phase == .choosingRoom ? "选房准备" : "距天亮 \(max(0, 180 - gameViewModel.gameTime))s")
-                        .font(compact ? .caption.bold() : .subheadline.bold())
-                        .foregroundColor(.yellow)
-                    Text(threatLabel)
-                        .font(.caption2.bold())
-                        .foregroundColor(threatColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
+                Image(systemName: coachIcon)
+                    .font(.caption.bold())
+                Text(topSummaryText)
+                    .font(metrics.isCompactPhone ? .caption2.bold() : .caption.bold())
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+                Spacer(minLength: 0)
             }
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(coachTint.opacity(0.82))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(coachTint.opacity(0.95), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.top, metrics.safeArea.top + (metrics.isCompactPhone ? 78 : 92))
+            .padding(.horizontal, metrics.horizontalPadding)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
 
-            if compact {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
-                    phaseChip(title: phaseTitle, value: phaseValue, tint: phaseTint)
-                    resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
-                    resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
-                    resourceChip(icon: "⏱", title: "天亮", value: "\(max(0, 180 - gameViewModel.gameTime))s", tint: .yellow)
-                    resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
-                    resourceChip(icon: "🛡️", title: "炮台", value: "\(gameViewModel.turrets.count)", tint: .blue)
-                }
-            } else {
-                HStack(spacing: 8) {
-                    resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
-                    resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
-                    resourceChip(icon: "⏱", title: "天亮", value: "\(max(0, 180 - gameViewModel.gameTime))s", tint: .yellow)
-                    resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
-                    resourceChip(icon: "🛡️", title: "炮台", value: "\(gameViewModel.turrets.count)", tint: .blue)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: compact ? 4 : 5) {
-                meter(title: "房门耐久", value: gameViewModel.doorHealth, total: max(gameViewModel.doorMaxHealth, 1), tint: doorMeterTint)
-                meter(title: "敌人血量", value: gameViewModel.ghost.health, total: max(gameViewModel.ghost.maxHealth, 1), tint: .red)
+    private func choosingRoomTopInset(compact: Bool, metrics: PhoneMetrics) -> some View {
+        VStack(spacing: compact ? 6 : 8) {
+            topHeadlineRow(compact: compact)
+            HStack(spacing: 8) {
+                resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
+                resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
+                resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
             }
         }
+        .padding(.horizontal, metrics.horizontalPadding)
+        .padding(.top, max(6, metrics.safeArea.top + 4))
+        .padding(.bottom, 6)
+    }
+
+    private func nightDefenseTopInset(compact: Bool, metrics: PhoneMetrics) -> some View {
+        topHud(compact: compact)
+            .padding(.horizontal, metrics.horizontalPadding)
+            .padding(.top, max(6, metrics.safeArea.top + 4))
+            .padding(.bottom, 6)
+    }
+
+    private func choosingRoomBottomInset(compact: Bool, metrics: PhoneMetrics) -> some View {
+        roomChoiceDeck(compact: compact)
+            .padding(.horizontal, metrics.horizontalPadding)
+            .padding(.top, 8)
+            .padding(.bottom, max(8, metrics.safeArea.bottom + 8))
+    }
+
+    private func nightDefenseBottomInset(compact: Bool, metrics: PhoneMetrics) -> some View {
+        bottomCommandDeck(compact: compact)
+            .padding(.horizontal, metrics.horizontalPadding)
+            .padding(.top, 8)
+            .padding(.bottom, max(8, metrics.safeArea.bottom + 8))
+    }
+
+    private func topHud(compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+            topHeadlineRow(compact: compact)
+            topResourceStrip(compact: compact)
+            topMeterStrip(compact: compact)
+        }
         .padding(compact ? 10 : 12)
-        .background(.black.opacity(0.62))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(phaseTint.opacity(0.78), lineWidth: 1.4))
+        .background(.black.opacity(0.52))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(phaseTint.opacity(0.62), lineWidth: 1.2))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: phaseTint.opacity(0.30), radius: 14)
+        .shadow(color: phaseTint.opacity(0.22), radius: 12)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("游戏状态，金币 \(gameViewModel.playerGold)，电力 \(gameViewModel.playerElectricity)，门耐久 \(Int(gameViewModel.doorHealth))")
     }
 
-    private func urgentCoachStrip(compact: Bool) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: coachIcon).font(.caption.bold())
-            Text("当前推荐")
-                .font(.caption2.bold())
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .foregroundColor(.black)
-                .background(coachTint)
-                .clipShape(Capsule())
-            Text(coachText)
-                .font(compact ? .caption2.bold() : .caption.bold())
-                .lineLimit(compact ? 2 : 3)
-                .minimumScaleFactor(0.82)
-            Spacer(minLength: 0)
+    private func topHeadlineRow(compact: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(gameViewModel.phase == .choosingRoom ? "选择宿舍" : "夜间防守")
+                    .font(compact ? .subheadline.bold() : .headline.bold())
+                    .foregroundColor(.white)
+                Text(phaseTitle)
+                    .font(.caption2)
+                    .foregroundColor(phaseTint)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(gameViewModel.phase == .choosingRoom ? "选房准备" : "距天亮 \(max(0, 180 - gameViewModel.gameTime))s")
+                    .font(compact ? .caption.bold() : .subheadline.bold())
+                    .foregroundColor(.yellow)
+                Text(threatLabel)
+                    .font(.caption2.bold())
+                    .foregroundColor(threatColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
         }
-        .foregroundColor(.white)
-        .padding(.horizontal, compact ? 10 : 11)
-        .padding(.vertical, compact ? 7 : 8)
-        .background(coachTint.opacity(0.30))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(coachTint.opacity(0.70), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func topResourceStrip(compact: Bool) -> some View {
+        HStack(spacing: compact ? 6 : 8) {
+            resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
+            resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
+            resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
+            resourceChip(icon: "🛡️", title: "炮台", value: "\(gameViewModel.turrets.count)", tint: .blue)
+        }
+    }
+
+    private func topMeterStrip(compact: Bool) -> some View {
+        HStack(spacing: compact ? 8 : 10) {
+            meter(title: "房门", value: gameViewModel.doorHealth, total: max(gameViewModel.doorMaxHealth, 1), tint: doorMeterTint)
+            meter(title: "敌人", value: gameViewModel.ghost.health, total: max(gameViewModel.ghost.maxHealth, 1), tint: .red)
+        }
     }
 
     private func roomChoiceDeck(compact: Bool) -> some View {
         VStack(spacing: compact ? 8 : 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("选一个房间入住")
-                        .font(compact ? .caption.bold() : .headline.bold())
-                    Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
-                        .font(.caption2)
-                        .opacity(0.76)
-                        .lineLimit(2)
-                }
-                Spacer()
-            }
-            .foregroundColor(.white)
+            roomChoiceHeader(compact: compact)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
                 ForEach(gameViewModel.availableRooms) { room in
-                    Button(action: { gameViewModel.chooseRoom(room) }) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack {
-                                Text(room.name).font(.caption.bold()).lineLimit(1).minimumScaleFactor(0.75)
-                                Spacer()
-                                Text("风险 \(room.risk)").font(.caption2.bold()).foregroundColor(room.id == gameViewModel.selectedRoom.id ? .black : .yellow)
-                            }
-                            Text("收益 +\(room.rewardBonus)/秒 · 门 \(Int(room.doorBonus))")
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.72)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: compact ? 50 : 58)
-                        .padding(8)
-                        .foregroundColor(room.id == gameViewModel.selectedRoom.id ? .black : .white)
-                        .background(room.id == gameViewModel.selectedRoom.id ? Color.yellow : Color.white.opacity(0.10))
-                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+                    roomCard(room, compact: compact)
                 }
             }
 
-            Button(action: { gameViewModel.beginNightDefense() }) {
-                commandButtonContent(title: "入住并开始夜晚", subtitle: "角色固定 · 开始睡觉发育", systemImage: "moon.stars.fill", compact: compact)
-            }
-            .buttonStyle(CommandButtonStyle(tint: .green, compact: compact))
+            beginNightButton(compact: compact)
         }
         .padding(compact ? 10 : 12)
         .background(.black.opacity(0.68))
@@ -191,37 +212,82 @@ struct GameView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    private func roomChoiceHeader(compact: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("选一个房间入住")
+                    .font(compact ? .caption.bold() : .headline.bold())
+                Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
+                    .font(.caption2)
+                    .opacity(0.76)
+                    .lineLimit(2)
+            }
+            Spacer()
+        }
+        .foregroundColor(.white)
+    }
+
+    private func roomCard(_ room: Room, compact: Bool) -> some View {
+        Button(action: { gameViewModel.chooseRoom(room) }) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Text(room.name).font(.caption.bold()).lineLimit(1).minimumScaleFactor(0.75)
+                    Spacer()
+                    Text("风险 \(room.risk)")
+                        .font(.caption2.bold())
+                        .foregroundColor(room.id == gameViewModel.selectedRoom.id ? .black : .yellow)
+                }
+                Text("收益 +\(room.rewardBonus)/秒 · 门 \(Int(room.doorBonus))")
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity, minHeight: compact ? 50 : 58)
+            .padding(8)
+            .foregroundColor(room.id == gameViewModel.selectedRoom.id ? .black : .white)
+            .background(room.id == gameViewModel.selectedRoom.id ? Color.yellow : Color.white.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func beginNightButton(compact: Bool) -> some View {
+        Button(action: { gameViewModel.beginNightDefense() }) {
+            commandButtonContent(title: "入住并开始夜晚", subtitle: "角色固定 · 开始睡觉发育", systemImage: "moon.stars.fill", compact: compact)
+        }
+        .buttonStyle(CommandButtonStyle(tint: .green, compact: compact))
+    }
+
+    private func quickStatusRow(compact: Bool) -> some View {
+        HStack(spacing: compact ? 8 : 10) {
+            quickStatusPill(
+                title: gameViewModel.player.isSleeping ? "当前状态" : "建议动作",
+                value: gameViewModel.player.isSleeping ? "睡觉发育中" : quickActionText,
+                tint: gameViewModel.player.isSleeping ? .green : coachTint,
+                systemImage: gameViewModel.player.isSleeping ? "bed.double.fill" : quickActionIcon
+            )
+            quickStatusPill(
+                title: "临时效果",
+                value: activeEffectSummary,
+                tint: activeEffectTint,
+                systemImage: activeEffectIcon
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("快速状态，\(gameViewModel.player.isSleeping ? "睡觉发育中" : quickActionText)，\(activeEffectSummary)")
+    }
+
     private func bottomCommandDeck(compact: Bool) -> some View {
         VStack(spacing: compact ? 8 : 10) {
-            HStack(spacing: compact ? 8 : 10) {
-                Button(action: { gameViewModel.toggleSleep() }) {
-                    commandButtonContent(
-                        title: gameViewModel.player.isSleeping ? "醒来布防" : "立即睡觉",
-                        subtitle: gameViewModel.player.isSleeping ? sleepButtonSubtitle : "角色不移动，只切换状态",
-                        systemImage: gameViewModel.player.isSleeping ? "figure.stand" : "bed.double.fill",
-                        compact: compact
-                    )
-                }
-                .buttonStyle(CommandButtonStyle(tint: (recommendedCommand == .wake || recommendedCommand == .sleep) ? coachTint : (gameViewModel.player.isSleeping ? .yellow : .green), compact: compact, emphasized: recommendedCommand == .wake || recommendedCommand == .sleep))
+            quickStatusRow(compact: compact)
+                .opacity(isAnySheetPresented ? 0.32 : 1)
 
-                Button(action: { isShopPresented = true }) {
-                    commandButtonContent(title: recommendedCommand == .shop ? "推荐：宿舍商店" : "宿舍商店", subtitle: recommendedShopAction, systemImage: "cart.fill", compact: compact)
-                }
-                .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .shop ? coachTint : .blue, compact: compact, emphasized: recommendedCommand == .shop))
-            }
+            primaryCommandBar(compact: compact)
+                .opacity(isAnySheetPresented ? 0.22 : 1)
+                .allowsHitTesting(!isAnySheetPresented)
 
-            HStack(spacing: compact ? 8 : 10) {
-                Button(action: { isRulesPresented = true }) {
-                    commandButtonContent(title: "道具策略", subtitle: compact ? "道具/规则" : "冻结 / 屏障 / 修门", systemImage: "sparkles", compact: compact)
-                }
-                .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .items ? coachTint : .purple, compact: compact, emphasized: recommendedCommand == .items))
-
-                Button(action: { gameViewModel.repairDoor() }) {
-                    commandButtonContent(title: recommendedCommand == .repair ? "推荐：修门" : "一键修门", subtitle: repairButtonSubtitle, systemImage: "hammer.fill", compact: compact)
-                }
-                .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .repair ? coachTint : .orange, compact: compact, emphasized: recommendedCommand == .repair))
-                .disabled(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth)
-                .opacity(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth ? 0.55 : 1)
+            if !isAnySheetPresented {
+                secondaryCommandRow(compact: compact)
             }
         }
         .padding(compact ? 10 : 12)
@@ -231,21 +297,66 @@ struct GameView: View {
         .accessibilityElement(children: .contain)
     }
 
+    private func primaryCommandBar(compact: Bool) -> some View {
+        HStack(spacing: compact ? 8 : 10) {
+            Button(action: { gameViewModel.toggleSleep() }) {
+                commandButtonContent(
+                    title: gameViewModel.player.isSleeping ? "醒来布防" : "立即睡觉",
+                    subtitle: gameViewModel.player.isSleeping ? sleepButtonSubtitle : "角色不移动，只切换状态",
+                    systemImage: gameViewModel.player.isSleeping ? "figure.stand" : "bed.double.fill",
+                    compact: compact
+                )
+            }
+            .buttonStyle(CommandButtonStyle(tint: (recommendedCommand == .wake || recommendedCommand == .sleep) ? coachTint : (gameViewModel.player.isSleeping ? .yellow : .green), compact: compact, emphasized: recommendedCommand == .wake || recommendedCommand == .sleep))
+
+            Button(action: { isShopPresented = true }) {
+                commandButtonContent(title: recommendedCommand == .shop ? "推荐：宿舍商店" : "宿舍商店", subtitle: recommendedShopAction, systemImage: "cart.fill", compact: compact)
+            }
+            .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .shop ? coachTint : .blue, compact: compact, emphasized: recommendedCommand == .shop))
+        }
+    }
+
+    private func secondaryCommandRow(compact: Bool) -> some View {
+        HStack(spacing: compact ? 8 : 10) {
+            Button(action: { isRulesPresented = true }) {
+                commandButtonContent(title: "道具策略", subtitle: compact ? "道具/规则" : "冻结 / 屏障 / 修门", systemImage: "sparkles", compact: compact)
+            }
+            .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .items ? coachTint : .purple, compact: compact, emphasized: recommendedCommand == .items))
+
+            Button(action: { gameViewModel.repairDoor() }) {
+                commandButtonContent(title: recommendedCommand == .repair ? "推荐：修门" : "一键修门", subtitle: repairButtonSubtitle, systemImage: "hammer.fill", compact: compact)
+            }
+            .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .repair ? coachTint : .orange, compact: compact, emphasized: recommendedCommand == .repair))
+            .disabled(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth)
+            .opacity(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth ? 0.55 : 1)
+        }
+    }
+
+    private var isAnySheetPresented: Bool {
+        isShopPresented || isRulesPresented
+    }
+
+    private var shouldShowCriticalOverlay: Bool {
+        gameViewModel.phase == .nightDefense && (isBreakingDoor || gameViewModel.ghost.isFrozen || recommendedCommand == .repair)
+    }
+
+    private var topSummaryText: String {
+        if gameViewModel.ghost.isFrozen {
+            return "猛鬼已冻结，趁窗口补强防线"
+        }
+        if isBreakingDoor && gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1) < 0.45 {
+            return "门耐久偏低，优先修门或升门"
+        }
+        if isBreakingDoor {
+            return "猛鬼正在破门，优先醒来布防"
+        }
+        if recommendedCommand == .repair {
+            return "当前建议先修门，避免防线失守"
+        }
+        return coachText
+    }
+
     private var phaseTitle: String {
-        if gameViewModel.phase == .choosingRoom { return "选房" }
-        if gameViewModel.gameTime < 45 { return "发育期" }
-        if gameViewModel.gameTime < 110 { return "守门期" }
-        return "反击期"
-    }
-
-    private var phaseValue: String {
-        if gameViewModel.phase == .choosingRoom { return "先定房间" }
-        if gameViewModel.gameTime < 45 { return "睡觉攒钱" }
-        if gameViewModel.gameTime < 110 { return "升级门" }
-        return "炮台输出"
-    }
-
-    private var phaseSubtitle: String {
         if gameViewModel.phase == .choosingRoom { return "选房后人物固定，进入宿舍防守循环" }
         if gameViewModel.player.isSleeping { return "睡觉发育中 · 金币和电力持续增长" }
         if isBreakingDoor { return "敌人破门中 · 先修门再补炮台" }
@@ -321,6 +432,12 @@ struct GameView: View {
     private var recommendedCommand: RecommendedCommand {
         guard gameViewModel.phase != .choosingRoom else { return .none }
         let doorRatio = gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1)
+        if gameViewModel.player.activeEffects.contains(where: { $0.type == .freezeGhost && $0.expiresAt > Date() }) {
+            return .shop
+        }
+        if gameViewModel.ghost.isFrozen {
+            return doorRatio < 0.45 ? .repair : .shop
+        }
         if isBreakingDoor && doorRatio < 0.45 && gameViewModel.playerGold >= 90 { return .repair }
         if isBreakingDoor && gameViewModel.player.isSleeping { return .wake }
         if gameViewModel.turrets.isEmpty && gameViewModel.gameTime > 30 { return .shop }
@@ -342,10 +459,57 @@ struct GameView: View {
     }
 
     private var recommendedShopAction: String {
+        if gameViewModel.ghost.isFrozen { return "趁冻结补炮台/升床" }
         if gameViewModel.player.bedLevel < 3 { return "优先升床" }
         if gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1) < 0.55 { return "修门/升门" }
         if gameViewModel.turrets.count < 2 { return "补炮台" }
         return "强化防线"
+    }
+
+    private var quickActionText: String {
+        switch recommendedCommand {
+        case .wake: return "立刻醒来布防"
+        case .shop:
+            if gameViewModel.ghost.isFrozen { return "趁冻结补强防线" }
+            return recommendedShopAction
+        case .items: return "查看道具应对"
+        case .repair: return "花90金币修门"
+        case .sleep: return "继续睡觉发育"
+        case .none: return "按当前节奏推进"
+        }
+    }
+
+    private var quickActionIcon: String {
+        switch recommendedCommand {
+        case .wake: return "figure.stand"
+        case .shop: return "cart.fill"
+        case .items: return "sparkles"
+        case .repair: return "hammer.fill"
+        case .sleep: return "bed.double.fill"
+        case .none: return "checkmark.circle.fill"
+        }
+    }
+
+    private var activeEffectSummary: String {
+        if gameViewModel.ghost.isFrozen { return "猛鬼已冻结" }
+        let active = gameViewModel.player.activeEffects.filter { $0.expiresAt > Date() }
+        guard let effect = active.sorted(by: { $0.expiresAt < $1.expiresAt }).first else { return "暂无增益" }
+        let seconds = max(1, Int(effect.expiresAt.timeIntervalSinceNow.rounded(.down)))
+        return "\(effectLabel(effect.type)) · \(seconds)s"
+    }
+
+    private var activeEffectTint: Color {
+        if gameViewModel.ghost.isFrozen { return .cyan }
+        let active = gameViewModel.player.activeEffects.filter { $0.expiresAt > Date() }
+        guard let effect = active.sorted(by: { $0.expiresAt < $1.expiresAt }).first else { return .white }
+        return effectTint(effect.type)
+    }
+
+    private var activeEffectIcon: String {
+        if gameViewModel.ghost.isFrozen { return "snowflake" }
+        let active = gameViewModel.player.activeEffects.filter { $0.expiresAt > Date() }
+        guard let effect = active.sorted(by: { $0.expiresAt < $1.expiresAt }).first else { return "bolt.slash.fill" }
+        return effectIcon(effect.type)
     }
 
     private func phaseChip(title: String, value: String, tint: Color) -> some View {
@@ -369,6 +533,71 @@ struct GameView: View {
         .padding(.vertical, 6)
         .background(.white.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func quickStatusPill(title: String, value: String, tint: Color, systemImage: String) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: systemImage)
+                .font(.caption.bold())
+                .foregroundColor(tint)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.68))
+                Text(value)
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.74)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .background(tint.opacity(0.14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(tint.opacity(0.55), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func effectLabel(_ type: Item.ItemType) -> String {
+        switch type {
+        case .speedUp: return "急行鞋"
+        case .goldBoost: return "金币翻倍"
+        case .doorRepair: return "紧急维修"
+        case .freezeGhost: return "冰冻"
+        case .invincible: return "无敌护盾"
+        case .barrier: return "房门屏障"
+        case .slowTrap: return "迟缓陷阱"
+        }
+    }
+
+    private func effectIcon(_ type: Item.ItemType) -> String {
+        switch type {
+        case .speedUp: return "figure.run"
+        case .goldBoost: return "dollarsign.circle.fill"
+        case .doorRepair: return "wrench.and.screwdriver.fill"
+        case .freezeGhost: return "snowflake"
+        case .invincible: return "shield.fill"
+        case .barrier: return "door.left.hand.open"
+        case .slowTrap: return "tortoise.fill"
+        }
+    }
+
+    private func effectTint(_ type: Item.ItemType) -> Color {
+        switch type {
+        case .speedUp: return .blue
+        case .goldBoost: return .yellow
+        case .doorRepair: return .green
+        case .freezeGhost: return .cyan
+        case .invincible: return .purple
+        case .barrier: return .orange
+        case .slowTrap: return .pink
+        }
     }
 
     private func meter(title: String, value: Float, total: Float, tint: Color) -> some View {
