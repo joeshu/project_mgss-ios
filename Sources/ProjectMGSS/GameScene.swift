@@ -387,7 +387,6 @@ final class GameScene: SKScene {
         bubble.lineWidth = 1.2
         bubble.zPosition = 20
         addChild(bubble)
-        labelNodes.append(bubble)
 
         let label = makeLabel(text, size: 11, color: tint)
         label.position = CGPoint(x: position.x, y: position.y - 1)
