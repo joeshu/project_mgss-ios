@@ -42,13 +42,11 @@ struct GameView: View {
                     ShopView(viewModel: gameViewModel)
                         .presentationDetents([.medium, .large])
                         .presentationDragIndicator(.visible)
-                        .presentationBackgroundInteraction(.enabled)
                 }
                 .sheet(isPresented: $isRulesPresented) {
                     ItemsView(viewModel: gameViewModel)
                         .presentationDetents([.medium, .large])
                         .presentationDragIndicator(.visible)
-                        .presentationBackgroundInteraction(.enabled)
                 }
             }
         }
@@ -227,7 +225,7 @@ struct GameView: View {
         .foregroundColor(.white)
     }
 
-    private func roomCard(_ room: Room, compact: Bool) -> some View {
+    private func roomCard(_ room: DormRoom, compact: Bool) -> some View {
         Button(action: { gameViewModel.chooseRoom(room) }) {
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
