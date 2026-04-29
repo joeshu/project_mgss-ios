@@ -3,9 +3,7 @@ import SpriteKit
 
 final class GameScene: SKScene {
     var gameState: GameState {
-        didSet {
-            renderScene()
-        }
+        didSet { renderScene() }
     }
 
     var onStateChange: ((GameState) -> Void)?
@@ -13,8 +11,8 @@ final class GameScene: SKScene {
     private let surviveSeconds = 180
     private var playerNode = SKShapeNode(circleOfRadius: 17)
     private var ghostNode = SKShapeNode(circleOfRadius: 22)
-    private var doorNode = SKShapeNode(rectOf: CGSize(width: 126, height: 24), cornerRadius: 6)
-    private var bedNode = SKShapeNode(rectOf: CGSize(width: 78, height: 46), cornerRadius: 9)
+    private var doorNode = SKShapeNode(rectOf: CGSize(width: 110, height: 22), cornerRadius: 6)
+    private var bedNode = SKShapeNode(rectOf: CGSize(width: 70, height: 42), cornerRadius: 9)
     private var auraNode = SKShapeNode(circleOfRadius: 31)
     private var ghostPressureRing = SKShapeNode(circleOfRadius: 34)
     private var turretNodes: [SKNode] = []
@@ -56,7 +54,7 @@ final class GameScene: SKScene {
         outer.lineWidth = 3
         addChild(outer)
 
-        let corridor = SKShapeNode(rect: CGRect(x: playRect.midX - 48, y: playRect.midY - 50, width: 96, height: playRect.height - 120), cornerRadius: 14)
+        let corridor = SKShapeNode(rect: CGRect(x: playRect.midX - 46, y: playRect.minY + 34, width: 92, height: playRect.height - 72), cornerRadius: 14)
         corridor.fillColor = SKColor(red: 0.11, green: 0.09, blue: 0.18, alpha: 1.0)
         corridor.strokeColor = SKColor(red: 0.30, green: 0.24, blue: 0.44, alpha: 1.0)
         corridor.lineWidth = 2
@@ -66,25 +64,12 @@ final class GameScene: SKScene {
         addCorridorTiles(in: playRect)
         addWarningDecorations(in: playRect)
 
-        let room = SKShapeNode(rect: dormRoomRect(), cornerRadius: 16)
-        room.fillColor = SKColor(red: 0.23, green: 0.17, blue: 0.13, alpha: 1.0)
-        room.strokeColor = SKColor(red: 0.98, green: 0.78, blue: 0.34, alpha: 0.95)
-        room.lineWidth = 3
-        addChild(room)
-
-        let roomTitle = makeLabel("404 寝室", size: 13, color: SKColor(red: 1.0, green: 0.84, blue: 0.42, alpha: 1.0))
-        roomTitle.position = CGPoint(x: dormRoomRect().midX, y: dormRoomRect().maxY - 24)
-        addChild(roomTitle)
-        dynamicBaseNodes.append(roomTitle)
-
         doorNode.strokeColor = .white
         doorNode.lineWidth = 2
-        doorNode.position = doorPosition()
         addChild(doorNode)
 
         bedNode.strokeColor = .white
         bedNode.lineWidth = 2
-        bedNode.position = CGPoint(x: dormRoomRect().midX - 52, y: dormRoomRect().minY + 66)
         addChild(bedNode)
 
         auraNode.fillColor = SKColor(red: 0.18, green: 0.75, blue: 1.0, alpha: 0.10)
@@ -126,21 +111,20 @@ final class GameScene: SKScene {
     }
 
     private func addRoomGrid(in rect: CGRect) {
-        let columns: CGFloat = 2
-        let rows: CGFloat = 3
-        let roomW = (rect.width - 56) / columns
-        let roomH = (rect.height - 92) / rows
-        for row in 0..<Int(rows) {
-            for col in 0..<Int(columns) {
-                let x = rect.minX + 18 + CGFloat(col) * (roomW + 20)
-                let y = rect.minY + 24 + CGFloat(row) * (roomH + 16)
-                let cell = SKShapeNode(rect: CGRect(x: x, y: y, width: roomW, height: roomH), cornerRadius: 12)
-                cell.fillColor = SKColor(red: 0.10, green: 0.09, blue: 0.16, alpha: 0.86)
-                cell.strokeColor = SKColor(red: 0.22, green: 0.18, blue: 0.34, alpha: 0.8)
-                cell.lineWidth = 1.2
-                addChild(cell)
-                dynamicBaseNodes.append(cell)
-            }
+        for room in DormRoom.allCases {
+            let roomRect = dormRoomRect(for: room)
+            let isSelected = room.id == gameState.selectedRoom.id
+            let cell = SKShapeNode(rect: roomRect, cornerRadius: 14)
+            cell.fillColor = isSelected ? SKColor(red: 0.23, green: 0.17, blue: 0.13, alpha: 1.0) : SKColor(red: 0.10, green: 0.09, blue: 0.16, alpha: 0.86)
+            cell.strokeColor = isSelected ? SKColor(red: 0.98, green: 0.78, blue: 0.34, alpha: 0.95) : SKColor(red: 0.22, green: 0.18, blue: 0.34, alpha: 0.8)
+            cell.lineWidth = isSelected ? 3 : 1.2
+            addChild(cell)
+            dynamicBaseNodes.append(cell)
+
+            let title = makeLabel(room.name, size: 11, color: isSelected ? SKColor(red: 1.0, green: 0.84, blue: 0.42, alpha: 1.0) : SKColor.white.withAlphaComponent(0.56))
+            title.position = CGPoint(x: roomRect.midX, y: roomRect.maxY - 18)
+            addChild(title)
+            dynamicBaseNodes.append(title)
         }
     }
 
@@ -152,7 +136,7 @@ final class GameScene: SKScene {
             tile.fillColor = SKColor(red: 0.16, green: 0.13, blue: 0.23, alpha: index % 2 == 0 ? 0.85 : 0.55)
             tile.strokeColor = SKColor(red: 0.36, green: 0.29, blue: 0.48, alpha: 0.45)
             tile.lineWidth = 1
-            tile.position = CGPoint(x: centerX, y: rect.minY + 68 + CGFloat(index) * 44)
+            tile.position = CGPoint(x: centerX, y: rect.minY + 68 + CGFloat(index) * max(30, rect.height / 9))
             addChild(tile)
             dynamicBaseNodes.append(tile)
         }
@@ -164,17 +148,14 @@ final class GameScene: SKScene {
             line.fillColor = SKColor(red: 0.94, green: 0.70, blue: 0.18, alpha: 0.7)
             line.strokeColor = .clear
             line.zRotation = -.pi / 7
-            line.position = CGPoint(x: rect.minX + 50 + CGFloat(idx) * 68, y: rect.maxY - 38)
+            line.position = CGPoint(x: rect.minX + 50 + CGFloat(idx) * max(44, rect.width / 5.5), y: rect.maxY - 38)
             addChild(line)
             dynamicBaseNodes.append(line)
         }
     }
 
     override func update(_ currentTime: TimeInterval) {
-        if lastTickTime == 0 {
-            lastTickTime = currentTime
-        }
-
+        if lastTickTime == 0 { lastTickTime = currentTime }
         let delta = currentTime - lastTickTime
         if delta < 1.0 { return }
         lastTickTime = currentTime
@@ -185,44 +166,40 @@ final class GameScene: SKScene {
     }
 
     private func advanceGameOneSecond() {
-        guard gameState.gameStatus == .playing else { return }
+        guard gameState.gameStatus == .playing, gameState.phase == .nightDefense else { return }
 
         let now = Date()
         gameState.gameTime += 1
+        gameState.player.position = gameState.selectedRoom.playerPosition
         gameState.player.activeEffects = gameState.player.activeEffects.filter { $0.expiresAt > now }
-        if gameState.ghost.isFrozen && gameState.ghost.frozenUntil <= now {
-            gameState.ghost.isFrozen = false
-        }
+        if gameState.ghost.isFrozen && gameState.ghost.frozenUntil <= now { gameState.ghost.isFrozen = false }
 
         let hasGoldBoost = hasEffect(.goldBoost)
         let hasBarrier = hasEffect(.barrier) || hasEffect(.invincible)
         let hasSlowTrap = hasEffect(.slowTrap)
 
         if gameState.player.isSleeping {
-            let baseGoldIncome = 12 + gameState.player.bedLevel * 10
+            let baseGoldIncome = 12 + gameState.player.bedLevel * 10 + gameState.selectedRoom.rewardBonus
             let goldIncome = hasGoldBoost ? baseGoldIncome * 2 : baseGoldIncome
             gameState.player.gold += goldIncome
             gameState.player.electricity += max(1, gameState.player.bedLevel / 2)
         }
 
         if gameState.gameTime % 30 == 0 {
-            gameState.ghost.attackPower += 8
-            gameState.ghost.speed += 0.1
-            gameState.ghost.maxHealth += 80
+            gameState.wave += 1
+            gameState.ghost.attackPower += Float(7 + gameState.selectedRoom.risk)
+            gameState.ghost.speed += 0.08
+            gameState.ghost.maxHealth += Float(70 + gameState.selectedRoom.risk * 10)
             gameState.ghost.health = min(gameState.ghost.maxHealth, gameState.ghost.health + 80)
         }
 
-        moveGhostTowardDoor(slowed: hasSlowTrap)
+        moveGhostTowardRoomDoor(slowed: hasSlowTrap)
+        updateGhostState()
 
-        if gameState.ghost.position.y <= 3.05 {
-            gameState.ghost.state = .attacking
-        } else {
-            gameState.ghost.state = .chasing
-        }
-
-        if gameState.ghost.state == .attacking && !gameState.ghost.isFrozen && !hasBarrier {
+        if (gameState.ghost.state == .attacking || gameState.ghost.state == .enraged) && !gameState.ghost.isFrozen && !hasBarrier {
             let armorReduction = min(Float(gameState.player.doorLevel - 1) * 0.07, 0.35)
-            let damage = gameState.ghost.attackPower * (1.0 - armorReduction)
+            let rageMultiplier: Float = gameState.ghost.state == .enraged ? 1.22 : 1.0
+            let damage = gameState.ghost.attackPower * rageMultiplier * (1.0 - armorReduction)
             gameState.player.doorHealth = max(0, gameState.player.doorHealth - damage)
         }
 
@@ -241,14 +218,24 @@ final class GameScene: SKScene {
         gameState.items = gameState.items.filter { $0.expiresAt > now }
     }
 
-    private func moveGhostTowardDoor(slowed: Bool) {
+    private func moveGhostTowardRoomDoor(slowed: Bool) {
         guard !gameState.ghost.isFrozen else { return }
-        let target = Position(x: 3.0, y: 3.0)
-        let step = max(0.03, gameState.ghost.speed / (slowed ? 120.0 : 80.0))
+        let target = gameState.selectedRoom.doorPosition
+        let step = max(0.03, gameState.ghost.speed / (slowed ? 122.0 : 82.0))
         let dx = target.x - gameState.ghost.position.x
         let dy = target.y - gameState.ghost.position.y
         gameState.ghost.position.x += max(-step, min(step, dx))
         gameState.ghost.position.y += max(-step, min(step, dy))
+    }
+
+    private func updateGhostState() {
+        if gameState.ghost.position.distance(to: gameState.selectedRoom.doorPosition) <= 0.18 {
+            gameState.ghost.state = gameState.gameTime > 120 ? .enraged : .attacking
+        } else if gameState.gameTime < 16 {
+            gameState.ghost.state = .scouting
+        } else {
+            gameState.ghost.state = .approaching
+        }
     }
 
     private func fireTurrets(now: Date) {
@@ -269,13 +256,8 @@ final class GameScene: SKScene {
         guard Int.random(in: 1...100) <= 18 else { return }
 
         let type = Item.ItemType.allCases.randomElement() ?? .goldBoost
-        let item = Item(
-            id: UUID().uuidString,
-            type: type,
-            position: Position(x: Float.random(in: 1.2...4.8), y: Float.random(in: 1.2...4.8)),
-            duration: 10,
-            expiresAt: now.addingTimeInterval(16)
-        )
+        let slot = gameState.selectedRoom.turretSlots.randomElement() ?? gameState.selectedRoom.playerPosition
+        let item = Item(id: UUID().uuidString, type: type, position: slot, duration: 10, expiresAt: now.addingTimeInterval(16))
         gameState.items.append(item)
     }
 
@@ -286,17 +268,18 @@ final class GameScene: SKScene {
     private func renderScene() {
         playerNode.position = mapPosition(gameState.player.position)
         auraNode.position = playerNode.position
-        auraNode.isHidden = !gameState.player.isSleeping
+        auraNode.isHidden = !gameState.player.isSleeping || gameState.phase == .choosingRoom
         ghostNode.position = mapPosition(gameState.ghost.position)
         ghostNode.fillColor = gameState.ghost.isFrozen ? .cyan : SKColor(red: 0.88, green: 0.07, blue: 0.12, alpha: 1.0)
-        ghostNode.setScale(gameState.gameTime > 120 ? 1.20 : (gameState.ghost.state == .attacking ? 1.10 : 1.0))
+        ghostNode.setScale(gameState.ghost.state == .enraged ? 1.25 : (isBreakingDoor ? 1.12 : 1.0))
         ghostPressureRing.position = ghostNode.position
-        ghostPressureRing.isHidden = gameState.ghost.isFrozen
-        ghostPressureRing.setScale(gameState.ghost.state == .attacking ? 1.32 : 1.0)
-        ghostPressureRing.alpha = gameState.ghost.state == .attacking ? 0.88 : 0.45
-        doorNode.position = doorPosition()
+        ghostPressureRing.isHidden = gameState.ghost.isFrozen || gameState.phase == .choosingRoom
+        ghostPressureRing.setScale(isBreakingDoor ? 1.35 : 1.0)
+        ghostPressureRing.alpha = isBreakingDoor ? 0.88 : 0.45
+        doorNode.position = mapPosition(gameState.selectedRoom.doorPosition)
         doorNode.fillColor = doorColor()
-        doorNode.setScale(gameState.ghost.state == .attacking ? 1.04 : 1.0)
+        doorNode.setScale(isBreakingDoor ? 1.05 : 1.0)
+        bedNode.position = mapPosition(gameState.selectedRoom.playerPosition)
         bedNode.fillColor = bedColor()
 
         turretNodes.forEach { $0.removeFromParent() }
@@ -307,14 +290,12 @@ final class GameScene: SKScene {
             base.strokeColor = .white
             base.lineWidth = 2
             base.position = mapPosition(turret.position)
-
             let barrel = SKShapeNode(rectOf: CGSize(width: 8, height: 20), cornerRadius: 3)
             barrel.fillColor = .darkGray
             barrel.strokeColor = .white
             barrel.lineWidth = 1
             barrel.position = CGPoint(x: 0, y: 15)
             base.addChild(barrel)
-
             let level = makeLabel("Lv\(turret.level)", size: 9, color: .white)
             level.position = CGPoint(x: 0, y: -21)
             base.addChild(level)
@@ -333,6 +314,10 @@ final class GameScene: SKScene {
         }
 
         renderStatusLabels()
+    }
+
+    private var isBreakingDoor: Bool {
+        gameState.ghost.state == .attacking || gameState.ghost.state == .enraged
     }
 
     private func renderLaser(from: CGPoint, to: CGPoint) {
@@ -354,20 +339,24 @@ final class GameScene: SKScene {
         let statusText: String
         switch gameState.gameStatus {
         case .playing:
-            statusText = gameState.ghost.state == .attacking ? "破门警报：先保门！" : "\(phaseName()) · 倒计时 \(max(0, surviveSeconds - gameState.gameTime))s"
+            if gameState.phase == .choosingRoom {
+                statusText = "选房阶段：角色入住房间后不可自由移动"
+            } else {
+                statusText = isBreakingDoor ? "第 \(gameState.wave) 波 · 破门警报！" : "第 \(gameState.wave) 波 · \(phaseName()) · \(max(0, surviveSeconds - gameState.gameTime))s"
+            }
         case .won:
             statusText = "胜利：天亮了"
         case .lost:
             statusText = "失败：寝室失守"
         }
 
-        let banner = makeLabel(statusText, size: 17, color: .white)
+        let banner = makeLabel(statusText, size: 16, color: .white)
         banner.fontName = "AvenirNext-Bold"
         banner.position = CGPoint(x: size.width / 2, y: boardRect().maxY - 26)
         addChild(banner)
         labelNodes.append(banner)
 
-        let ghostIcon = makeLabel(gameState.ghost.isFrozen ? "🧊" : "👹", size: 24, color: .white)
+        let ghostIcon = makeLabel(gameState.ghost.isFrozen ? "🧊" : ghostSymbol(), size: 24, color: .white)
         ghostIcon.position = CGPoint(x: ghostNode.position.x, y: ghostNode.position.y + 30)
         addChild(ghostIcon)
         labelNodes.append(ghostIcon)
@@ -378,9 +367,18 @@ final class GameScene: SKScene {
         labelNodes.append(sleepIcon)
 
         let doorTip = makeLabel(doorTipText(), size: 12, color: SKColor(red: 1.0, green: 0.86, blue: 0.48, alpha: 1.0))
-        doorTip.position = CGPoint(x: doorPosition().x, y: doorPosition().y + 27)
+        doorTip.position = CGPoint(x: doorNode.position.x, y: doorNode.position.y + 25)
         addChild(doorTip)
         labelNodes.append(doorTip)
+    }
+
+    private func ghostSymbol() -> String {
+        switch gameState.ghost.state {
+        case .scouting: return "👁"
+        case .approaching: return "👹"
+        case .attacking: return "💢"
+        case .enraged: return "🔥"
+        }
     }
 
     private func phaseName() -> String {
@@ -390,7 +388,8 @@ final class GameScene: SKScene {
     }
 
     private func doorTipText() -> String {
-        if gameState.ghost.state == .attacking { return "门口交战" }
+        if gameState.phase == .choosingRoom { return "等待入住" }
+        if isBreakingDoor { return "门口交战" }
         if gameState.turrets.isEmpty { return "门前缺少炮台" }
         return "火力覆盖中"
     }
@@ -409,15 +408,24 @@ final class GameScene: SKScene {
         return container
     }
 
-    private func dormRoomRect() -> CGRect {
+    private func dormRoomRect(for room: DormRoom) -> CGRect {
         let board = boardRect()
-        let width = min(board.width - 56, 300)
-        let height = min(max(190, board.height * 0.44), 238)
-        return CGRect(x: (size.width - width) / 2, y: board.minY + 42, width: width, height: height)
-    }
-
-    private func doorPosition() -> CGPoint {
-        CGPoint(x: dormRoomRect().midX, y: dormRoomRect().maxY + 3)
+        let roomW = min((board.width - 112) / 2, 128)
+        let roomH = min(max(82, board.height * 0.22), 122)
+        let leftX = board.midX - 46 - roomW
+        let rightX = board.midX + 46
+        let lowerY = board.minY + 44
+        let upperY = max(lowerY + roomH + 30, board.midY + 10)
+        switch room.id {
+        case DormRoom.rightLower.id:
+            return CGRect(x: rightX, y: lowerY, width: roomW, height: roomH)
+        case DormRoom.leftUpper.id:
+            return CGRect(x: leftX, y: upperY, width: roomW, height: roomH)
+        case DormRoom.rightUpper.id:
+            return CGRect(x: rightX, y: upperY, width: roomW, height: roomH)
+        default:
+            return CGRect(x: leftX, y: lowerY, width: roomW, height: roomH)
+        }
     }
 
     private func mapPosition(_ position: Position) -> CGPoint {
@@ -453,39 +461,25 @@ final class GameScene: SKScene {
 
     private func color(for type: Item.ItemType) -> SKColor {
         switch type {
-        case .speedUp:
-            return .systemBlue
-        case .goldBoost:
-            return .systemYellow
-        case .doorRepair:
-            return .systemGreen
-        case .freezeGhost:
-            return .cyan
-        case .invincible:
-            return .systemPurple
-        case .barrier:
-            return .systemOrange
-        case .slowTrap:
-            return .magenta
+        case .speedUp: return .systemBlue
+        case .goldBoost: return .systemYellow
+        case .doorRepair: return .systemGreen
+        case .freezeGhost: return .cyan
+        case .invincible: return .systemPurple
+        case .barrier: return .systemOrange
+        case .slowTrap: return .magenta
         }
     }
 
     private func symbol(for type: Item.ItemType) -> String {
         switch type {
-        case .speedUp:
-            return "↟"
-        case .goldBoost:
-            return "$"
-        case .doorRepair:
-            return "+"
-        case .freezeGhost:
-            return "*"
-        case .invincible:
-            return "◇"
-        case .barrier:
-            return "▣"
-        case .slowTrap:
-            return "~"
+        case .speedUp: return "↟"
+        case .goldBoost: return "$"
+        case .doorRepair: return "+"
+        case .freezeGhost: return "*"
+        case .invincible: return "◇"
+        case .barrier: return "▣"
+        case .slowTrap: return "~"
         }
     }
 }

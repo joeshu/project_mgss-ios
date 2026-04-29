@@ -9,12 +9,78 @@ struct GameState: Codable {
     var items: [Item]
     var gameTime: Int
     var gameStatus: GameStatus
+    var phase: GamePhase
+    var selectedRoom: DormRoom
+    var wave: Int
 }
 
 enum GameStatus: String, Codable {
     case playing = "playing"
     case won = "won"
     case lost = "lost"
+}
+
+enum GamePhase: String, Codable {
+    case choosingRoom = "CHOOSING_ROOM"
+    case nightDefense = "NIGHT_DEFENSE"
+}
+
+// MARK: - 房间选择
+struct DormRoom: Codable, Identifiable, Equatable, CaseIterable {
+    var id: String
+    var name: String
+    var risk: Int
+    var rewardBonus: Int
+    var doorBonus: Float
+    var playerPosition: Position
+    var doorPosition: Position
+    var turretSlots: [Position]
+
+    static let leftLower = DormRoom(
+        id: "left-lower",
+        name: "左下安静房",
+        risk: 1,
+        rewardBonus: 0,
+        doorBonus: 180,
+        playerPosition: Position(x: 1.55, y: 1.15),
+        doorPosition: Position(x: 2.65, y: 2.42),
+        turretSlots: [Position(x: 2.0, y: 2.82), Position(x: 1.25, y: 2.48), Position(x: 2.65, y: 3.08)]
+    )
+
+    static let rightLower = DormRoom(
+        id: "right-lower",
+        name: "右下发育房",
+        risk: 2,
+        rewardBonus: 4,
+        doorBonus: 80,
+        playerPosition: Position(x: 4.45, y: 1.15),
+        doorPosition: Position(x: 3.35, y: 2.42),
+        turretSlots: [Position(x: 4.0, y: 2.82), Position(x: 4.75, y: 2.48), Position(x: 3.35, y: 3.08)]
+    )
+
+    static let leftUpper = DormRoom(
+        id: "left-upper",
+        name: "左上近门房",
+        risk: 3,
+        rewardBonus: 7,
+        doorBonus: 0,
+        playerPosition: Position(x: 1.55, y: 3.92),
+        doorPosition: Position(x: 2.65, y: 3.36),
+        turretSlots: [Position(x: 2.0, y: 3.08), Position(x: 1.25, y: 3.42), Position(x: 2.65, y: 2.88)]
+    )
+
+    static let rightUpper = DormRoom(
+        id: "right-upper",
+        name: "右上高收益房",
+        risk: 4,
+        rewardBonus: 10,
+        doorBonus: -80,
+        playerPosition: Position(x: 4.45, y: 3.92),
+        doorPosition: Position(x: 3.35, y: 3.36),
+        turretSlots: [Position(x: 4.0, y: 3.08), Position(x: 4.75, y: 3.42), Position(x: 3.35, y: 2.88)]
+    )
+
+    static let allCases: [DormRoom] = [.leftLower, .rightLower, .leftUpper, .rightUpper]
 }
 
 // MARK: - 玩家
@@ -31,22 +97,22 @@ struct Player: Codable {
     var doorLevel: Int
     var activeEffects: [ActiveEffect]
 
-    init() {
-        self.position = Position(x: 3.0, y: 1.0)
+    init(room: DormRoom = .leftLower) {
+        self.position = room.playerPosition
         self.isSleeping = false
-        self.gold = 60
+        self.gold = 70
         self.electricity = 0
-        self.doorHealth = 900.0
-        self.doorMaxHealth = 900.0
+        self.doorMaxHealth = max(700.0, 900.0 + room.doorBonus)
+        self.doorHealth = self.doorMaxHealth
         self.isDoorBroken = false
-        self.speed = 3.0
+        self.speed = 0.0
         self.bedLevel = 1
         self.doorLevel = 1
         self.activeEffects = []
     }
 }
 
-// MARK: - 猛鬼
+// MARK: - 敌人
 struct Ghost: Codable {
     var position: Position
     var state: GhostState
@@ -58,17 +124,19 @@ struct Ghost: Codable {
     var frozenUntil: Date
 
     enum GhostState: String, Codable {
+        case scouting = "SCOUTING"
+        case approaching = "APPROACHING"
         case attacking = "ATTACKING"
-        case chasing = "CHASING"
+        case enraged = "ENRAGED"
     }
 
     init() {
-        self.position = Position(x: 3.0, y: 5.4)
-        self.state = .chasing
-        self.health = 1400.0
-        self.maxHealth = 1400.0
-        self.speed = 3.4
-        self.attackPower = 42.0
+        self.position = Position(x: 3.0, y: 5.7)
+        self.state = .scouting
+        self.health = 1500.0
+        self.maxHealth = 1500.0
+        self.speed = 3.15
+        self.attackPower = 40.0
         self.isFrozen = false
         self.frozenUntil = Date()
     }
@@ -128,7 +196,7 @@ struct ActiveEffect: Codable, Identifiable {
 }
 
 // MARK: - 位置
-struct Position: Codable {
+struct Position: Codable, Equatable {
     var x: Float
     var y: Float
 

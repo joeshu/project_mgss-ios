@@ -49,11 +49,11 @@ struct ItemsView: View {
             Text("夜晚宿舍防守循环")
                 .font(.headline.bold())
                 .foregroundColor(.white)
-            ruleLine("1", "入夜后先睡觉攒金币，床等级越高收益越快。")
-            ruleLine("2", "猛鬼靠近门后会进入破门状态，门耐久归零即失败。")
-            ruleLine("3", "升级门提高容错，建设炮台可以反杀猛鬼。")
-            ruleLine("4", "坚持到天亮或击败猛鬼即可胜利。")
-            Text("说明：本版本采用原创美术表达，保留宿舍防守玩法结构与移动端操作节奏。")
+            ruleLine("1", "先选房入住；入住后人物固定在床边，不做自由移动。")
+            ruleLine("2", "入夜后睡觉攒金币，床等级越高收益越快，高风险房收益更高。")
+            ruleLine("3", "敌人会巡查、逼近、破门和狂暴，门耐久归零即失败。")
+            ruleLine("4", "升级门提高容错，门口建设炮台，坚持到天亮或击败敌人即可胜利。")
+            Text("说明：本版本采用原创美术表达，只借鉴通用宿舍防守玩法结构与移动端操作节奏。")
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.56))
         }
@@ -136,7 +136,7 @@ struct ItemsView: View {
     private func getItemDescription(_ type: Item.ItemType) -> String {
         switch type {
         case .speedUp:
-            return "移动速度提升，预留给后续房间走位和拾取玩法。"
+            return "本轮规则下人物不自由移动；该道具保留为后续拾取/响应速度扩展。"
         case .goldBoost:
             return "金币获取速度提升 2 倍，持续 10 秒。"
         case .doorRepair:
