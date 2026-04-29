@@ -49,7 +49,7 @@ final class GameScene: SKScene {
         removeAllChildren()
         dynamicBaseNodes.removeAll()
 
-        let playRect = CGRect(x: 18, y: 96, width: max(40, size.width - 36), height: max(120, size.height - 196))
+        let playRect = boardRect()
         let outer = SKShapeNode(rect: playRect, cornerRadius: 20)
         outer.fillColor = SKColor(red: 0.07, green: 0.06, blue: 0.13, alpha: 0.96)
         outer.strokeColor = SKColor(red: 0.47, green: 0.31, blue: 0.76, alpha: 0.85)
@@ -107,6 +107,22 @@ final class GameScene: SKScene {
         ghostPressureRing.lineWidth = 3
         ghostPressureRing.glowWidth = 8
         addChild(ghostPressureRing)
+    }
+
+    private func boardRect() -> CGRect {
+        let compact = size.height < 720 || size.width < 380
+        let landscape = size.width > size.height
+        let topReserve: CGFloat = landscape ? 82 : (compact ? 214 : 236)
+        let bottomReserve: CGFloat = landscape ? 76 : (compact ? 172 : 194)
+        let minY = max(58, bottomReserve)
+        let visibleMaxY = max(minY + 160, size.height - topReserve)
+        let clampedMaxY = min(size.height - 24, visibleMaxY)
+        return CGRect(
+            x: compact ? 12 : 18,
+            y: minY,
+            width: max(40, size.width - (compact ? 24 : 36)),
+            height: max(160, clampedMaxY - minY)
+        )
     }
 
     private func addRoomGrid(in rect: CGRect) {
@@ -347,7 +363,7 @@ final class GameScene: SKScene {
 
         let banner = makeLabel(statusText, size: 17, color: .white)
         banner.fontName = "AvenirNext-Bold"
-        banner.position = CGPoint(x: size.width / 2, y: size.height - 104)
+        banner.position = CGPoint(x: size.width / 2, y: boardRect().maxY - 26)
         addChild(banner)
         labelNodes.append(banner)
 
@@ -394,8 +410,10 @@ final class GameScene: SKScene {
     }
 
     private func dormRoomRect() -> CGRect {
-        let width = min(size.width - 86, 300)
-        return CGRect(x: (size.width - width) / 2, y: 142, width: width, height: 224)
+        let board = boardRect()
+        let width = min(board.width - 56, 300)
+        let height = min(max(190, board.height * 0.44), 238)
+        return CGRect(x: (size.width - width) / 2, y: board.minY + 42, width: width, height: height)
     }
 
     private func doorPosition() -> CGPoint {
@@ -403,7 +421,7 @@ final class GameScene: SKScene {
     }
 
     private func mapPosition(_ position: Position) -> CGPoint {
-        let playRect = CGRect(x: 42, y: 122, width: max(40, size.width - 84), height: max(120, size.height - 254))
+        let playRect = boardRect().insetBy(dx: 28, dy: 26)
         let x = playRect.minX + CGFloat(position.x / 6.0) * playRect.width
         let y = playRect.minY + CGFloat(position.y / 6.0) * playRect.height
         return CGPoint(x: x, y: y)

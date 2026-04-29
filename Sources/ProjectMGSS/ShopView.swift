@@ -5,7 +5,7 @@ struct ShopView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 LinearGradient(
                     colors: [Color(red: 0.06, green: 0.05, blue: 0.12), Color(red: 0.13, green: 0.08, blue: 0.18)],
@@ -74,7 +74,9 @@ struct ShopView: View {
                             )
                         }
                     }
-                    .padding(16)
+                     .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 28)
                 }
             }
             .navigationTitle("宿舍商店")
@@ -82,7 +84,9 @@ struct ShopView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("完成") { dismiss() }
+                        .font(.body.bold())
                         .foregroundColor(.white)
+                        .frame(minWidth: 52, minHeight: 44)
                 }
             }
         }
@@ -209,6 +213,8 @@ struct ShopView: View {
             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
         .disabled(disabled)
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
     }
 }
 
