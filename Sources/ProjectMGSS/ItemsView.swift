@@ -5,7 +5,7 @@ struct ItemsView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 LinearGradient(
                     colors: [Color(red: 0.05, green: 0.04, blue: 0.12), Color(red: 0.12, green: 0.07, blue: 0.19)],
@@ -26,7 +26,9 @@ struct ItemsView: View {
                             itemCard(itemType)
                         }
                     }
-                    .padding(16)
+                     .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 28)
                 }
             }
             .navigationTitle("道具与规则")
@@ -34,7 +36,9 @@ struct ItemsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("完成") { dismiss() }
+                        .font(.body.bold())
                         .foregroundColor(.white)
+                        .frame(minWidth: 52, minHeight: 44)
                 }
             }
         }
@@ -106,6 +110,8 @@ struct ItemsView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
     }
 
     private func displayName(_ type: Item.ItemType) -> String {

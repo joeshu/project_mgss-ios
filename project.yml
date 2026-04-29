@@ -22,7 +22,7 @@ targets:
     info:
       path: Info.plist
       properties:
-        CFBundleDisplayName: 猛鬼宿舍
+        CFBundleDisplayName: 夜半宿舍防线
         CFBundleShortVersionString: 1.0.0
         CFBundleVersion: 1
         UISupportedInterfaceOrientations:
