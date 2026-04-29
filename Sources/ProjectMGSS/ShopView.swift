@@ -17,7 +17,8 @@ struct ShopView: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         shopHeader
-                        shopSection(title: "先发育", subtitle: "宿舍防守节奏：床越高，睡觉经济越快。") {
+                        priorityBanner
+                        shopSection(title: "① 先发育", subtitle: "优先升级床铺，让睡觉经济滚起来。") {
                             shopCard(
                                 icon: "🛏️",
                                 title: "升级床铺 Lv.\(viewModel.player.bedLevel) → Lv.\(min(viewModel.player.bedLevel + 1, 5))",
@@ -29,7 +30,7 @@ struct ShopView: View {
                             )
                         }
 
-                        shopSection(title: "再守门", subtitle: "门是失败线，猛鬼开始破门时优先补耐久。") {
+                        shopSection(title: "② 再守门", subtitle: "门是失败线，破门警报出现时先修门/升门。") {
                             shopCard(
                                 icon: "🚪",
                                 title: "升级房门 Lv.\(viewModel.player.doorLevel) → Lv.\(min(viewModel.player.doorLevel + 1, 6))",
@@ -51,7 +52,7 @@ struct ShopView: View {
                             )
                         }
 
-                        shopSection(title: "最后反击", subtitle: "炮台负责消耗猛鬼血量，形成守门反杀路线。") {
+                        shopSection(title: "③ 最后反击", subtitle: "门前布置炮台，形成火力点，拖到天亮或击退敌人。") {
                             shopCard(
                                 icon: "🟢",
                                 title: "基础炮台",
@@ -96,6 +97,58 @@ struct ShopView: View {
         .padding(12)
         .background(.black.opacity(0.42))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var priorityBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: priorityIcon)
+                .foregroundColor(priorityTint)
+                .font(.headline)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(priorityTitle)
+                    .font(.subheadline.bold())
+                    .foregroundColor(.white)
+                Text(prioritySubtitle)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.70))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(priorityTint.opacity(0.18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(priorityTint.opacity(0.62), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var priorityTitle: String {
+        if viewModel.doorHealth / max(viewModel.doorMaxHealth, 1) < 0.35 { return "优先级：救门" }
+        if viewModel.player.bedLevel < 3 { return "优先级：升床发育" }
+        if viewModel.turrets.count < 2 { return "优先级：补门前炮台" }
+        return "优先级：强化整条防线"
+    }
+
+    private var prioritySubtitle: String {
+        if viewModel.doorHealth / max(viewModel.doorMaxHealth, 1) < 0.35 { return "当前门耐久偏低，先修门或升级门，购买后不会重开。" }
+        if viewModel.player.bedLevel < 3 { return "床等级越高，睡觉收益越快，更接近“先发育再防守”的节奏。" }
+        if viewModel.turrets.count < 2 { return "至少两座炮台覆盖门口，才能稳定消耗敌人血量。" }
+        return "继续补门、床和炮台等级，准备后半夜狂暴阶段。"
+    }
+
+    private var priorityIcon: String {
+        if viewModel.doorHealth / max(viewModel.doorMaxHealth, 1) < 0.35 { return "exclamationmark.shield.fill" }
+        if viewModel.player.bedLevel < 3 { return "bed.double.fill" }
+        if viewModel.turrets.count < 2 { return "scope" }
+        return "checkmark.seal.fill"
+    }
+
+    private var priorityTint: Color {
+        if viewModel.doorHealth / max(viewModel.doorMaxHealth, 1) < 0.35 { return .red }
+        if viewModel.player.bedLevel < 3 { return .green }
+        if viewModel.turrets.count < 2 { return .cyan }
+        return .yellow
     }
 
     private func resourcePill(_ icon: String, _ value: String) -> some View {

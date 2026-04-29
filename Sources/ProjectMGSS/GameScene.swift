@@ -16,6 +16,7 @@ final class GameScene: SKScene {
     private var doorNode = SKShapeNode(rectOf: CGSize(width: 126, height: 24), cornerRadius: 6)
     private var bedNode = SKShapeNode(rectOf: CGSize(width: 78, height: 46), cornerRadius: 9)
     private var auraNode = SKShapeNode(circleOfRadius: 31)
+    private var ghostPressureRing = SKShapeNode(circleOfRadius: 34)
     private var turretNodes: [SKNode] = []
     private var itemNodes: [SKNode] = []
     private var labelNodes: [SKLabelNode] = []
@@ -62,6 +63,7 @@ final class GameScene: SKScene {
         addChild(corridor)
 
         addRoomGrid(in: playRect)
+        addCorridorTiles(in: playRect)
         addWarningDecorations(in: playRect)
 
         let room = SKShapeNode(rect: dormRoomRect(), cornerRadius: 16)
@@ -99,6 +101,12 @@ final class GameScene: SKScene {
         ghostNode.strokeColor = SKColor(red: 1.0, green: 0.42, blue: 0.42, alpha: 1.0)
         ghostNode.lineWidth = 3
         addChild(ghostNode)
+
+        ghostPressureRing.fillColor = .clear
+        ghostPressureRing.strokeColor = SKColor(red: 1.0, green: 0.14, blue: 0.18, alpha: 0.62)
+        ghostPressureRing.lineWidth = 3
+        ghostPressureRing.glowWidth = 8
+        addChild(ghostPressureRing)
     }
 
     private func addRoomGrid(in rect: CGRect) {
@@ -117,6 +125,20 @@ final class GameScene: SKScene {
                 addChild(cell)
                 dynamicBaseNodes.append(cell)
             }
+        }
+    }
+
+    private func addCorridorTiles(in rect: CGRect) {
+        let centerX = rect.midX
+        let tileCount = 8
+        for index in 0..<tileCount {
+            let tile = SKShapeNode(rectOf: CGSize(width: 70, height: 18), cornerRadius: 5)
+            tile.fillColor = SKColor(red: 0.16, green: 0.13, blue: 0.23, alpha: index % 2 == 0 ? 0.85 : 0.55)
+            tile.strokeColor = SKColor(red: 0.36, green: 0.29, blue: 0.48, alpha: 0.45)
+            tile.lineWidth = 1
+            tile.position = CGPoint(x: centerX, y: rect.minY + 68 + CGFloat(index) * 44)
+            addChild(tile)
+            dynamicBaseNodes.append(tile)
         }
     }
 
@@ -251,9 +273,14 @@ final class GameScene: SKScene {
         auraNode.isHidden = !gameState.player.isSleeping
         ghostNode.position = mapPosition(gameState.ghost.position)
         ghostNode.fillColor = gameState.ghost.isFrozen ? .cyan : SKColor(red: 0.88, green: 0.07, blue: 0.12, alpha: 1.0)
-        ghostNode.setScale(gameState.gameTime > 120 ? 1.16 : 1.0)
+        ghostNode.setScale(gameState.gameTime > 120 ? 1.20 : (gameState.ghost.state == .attacking ? 1.10 : 1.0))
+        ghostPressureRing.position = ghostNode.position
+        ghostPressureRing.isHidden = gameState.ghost.isFrozen
+        ghostPressureRing.setScale(gameState.ghost.state == .attacking ? 1.32 : 1.0)
+        ghostPressureRing.alpha = gameState.ghost.state == .attacking ? 0.88 : 0.45
         doorNode.position = doorPosition()
         doorNode.fillColor = doorColor()
+        doorNode.setScale(gameState.ghost.state == .attacking ? 1.04 : 1.0)
         bedNode.fillColor = bedColor()
 
         turretNodes.forEach { $0.removeFromParent() }
@@ -311,7 +338,7 @@ final class GameScene: SKScene {
         let statusText: String
         switch gameState.gameStatus {
         case .playing:
-            statusText = gameState.ghost.state == .attacking ? "猛鬼正在破门！" : "夜晚倒计时：\(max(0, surviveSeconds - gameState.gameTime))s"
+            statusText = gameState.ghost.state == .attacking ? "破门警报：先保门！" : "\(phaseName()) · 倒计时 \(max(0, surviveSeconds - gameState.gameTime))s"
         case .won:
             statusText = "胜利：天亮了"
         case .lost:
@@ -333,6 +360,23 @@ final class GameScene: SKScene {
         sleepIcon.position = CGPoint(x: playerNode.position.x, y: playerNode.position.y + 25)
         addChild(sleepIcon)
         labelNodes.append(sleepIcon)
+
+        let doorTip = makeLabel(doorTipText(), size: 12, color: SKColor(red: 1.0, green: 0.86, blue: 0.48, alpha: 1.0))
+        doorTip.position = CGPoint(x: doorPosition().x, y: doorPosition().y + 27)
+        addChild(doorTip)
+        labelNodes.append(doorTip)
+    }
+
+    private func phaseName() -> String {
+        if gameState.gameTime < 45 { return "发育期" }
+        if gameState.gameTime < 110 { return "守门期" }
+        return "反击期"
+    }
+
+    private func doorTipText() -> String {
+        if gameState.ghost.state == .attacking { return "门口交战" }
+        if gameState.turrets.isEmpty { return "门前缺少炮台" }
+        return "火力覆盖中"
     }
 
     private func makePickupNode(for item: Item) -> SKNode {
