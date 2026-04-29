@@ -89,17 +89,17 @@ struct GameView: View {
                     phaseChip(title: phaseTitle, value: phaseValue, tint: phaseTint)
                     resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
                     resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
-                    resourceChip(icon: "🏠", title: "房间", value: "风险\(gameViewModel.selectedRoom.risk)", tint: .purple)
+                    resourceChip(icon: "⏱", title: "天亮", value: "\(max(0, 180 - gameViewModel.gameTime))s", tint: .yellow)
                     resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
                     resourceChip(icon: "🛡️", title: "炮台", value: "\(gameViewModel.turrets.count)", tint: .blue)
                 }
             } else {
                 HStack(spacing: 8) {
-                    phaseChip(title: phaseTitle, value: phaseValue, tint: phaseTint)
                     resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
                     resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
-                    resourceChip(icon: "🏠", title: "房间", value: gameViewModel.selectedRoom.name, tint: .purple)
+                    resourceChip(icon: "⏱", title: "天亮", value: "\(max(0, 180 - gameViewModel.gameTime))s", tint: .yellow)
                     resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
+                    resourceChip(icon: "🛡️", title: "炮台", value: "\(gameViewModel.turrets.count)", tint: .blue)
                 }
             }
 
@@ -120,6 +120,13 @@ struct GameView: View {
     private func urgentCoachStrip(compact: Bool) -> some View {
         HStack(spacing: 8) {
             Image(systemName: coachIcon).font(.caption.bold())
+            Text("当前推荐")
+                .font(.caption2.bold())
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .foregroundColor(.black)
+                .background(coachTint)
+                .clipShape(Capsule())
             Text(coachText)
                 .font(compact ? .caption2.bold() : .caption.bold())
                 .lineLimit(compact ? 2 : 3)
@@ -190,29 +197,29 @@ struct GameView: View {
                 Button(action: { gameViewModel.toggleSleep() }) {
                     commandButtonContent(
                         title: gameViewModel.player.isSleeping ? "醒来布防" : "立即睡觉",
-                        subtitle: gameViewModel.player.isSleeping ? "破门危险时再醒" : "角色不移动，只切换状态",
+                        subtitle: gameViewModel.player.isSleeping ? sleepButtonSubtitle : "角色不移动，只切换状态",
                         systemImage: gameViewModel.player.isSleeping ? "figure.stand" : "bed.double.fill",
                         compact: compact
                     )
                 }
-                .buttonStyle(CommandButtonStyle(tint: gameViewModel.player.isSleeping ? .yellow : .green, compact: compact))
+                .buttonStyle(CommandButtonStyle(tint: (recommendedCommand == .wake || recommendedCommand == .sleep) ? coachTint : (gameViewModel.player.isSleeping ? .yellow : .green), compact: compact, emphasized: recommendedCommand == .wake || recommendedCommand == .sleep))
 
                 Button(action: { isShopPresented = true }) {
-                    commandButtonContent(title: "宿舍商店", subtitle: recommendedShopAction, systemImage: "cart.fill", compact: compact)
+                    commandButtonContent(title: recommendedCommand == .shop ? "推荐：宿舍商店" : "宿舍商店", subtitle: recommendedShopAction, systemImage: "cart.fill", compact: compact)
                 }
-                .buttonStyle(CommandButtonStyle(tint: .blue, compact: compact))
+                .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .shop ? coachTint : .blue, compact: compact, emphasized: recommendedCommand == .shop))
             }
 
             HStack(spacing: compact ? 8 : 10) {
                 Button(action: { isRulesPresented = true }) {
                     commandButtonContent(title: "道具策略", subtitle: compact ? "道具/规则" : "冻结 / 屏障 / 修门", systemImage: "sparkles", compact: compact)
                 }
-                .buttonStyle(CommandButtonStyle(tint: .purple, compact: compact))
+                .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .items ? coachTint : .purple, compact: compact, emphasized: recommendedCommand == .items))
 
                 Button(action: { gameViewModel.repairDoor() }) {
-                    commandButtonContent(title: "一键修门", subtitle: compact ? "90 金币" : "90 金币 · 不重开", systemImage: "hammer.fill", compact: compact)
+                    commandButtonContent(title: recommendedCommand == .repair ? "推荐：修门" : "一键修门", subtitle: repairButtonSubtitle, systemImage: "hammer.fill", compact: compact)
                 }
-                .buttonStyle(CommandButtonStyle(tint: .orange, compact: compact))
+                .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .repair ? coachTint : .orange, compact: compact, emphasized: recommendedCommand == .repair))
                 .disabled(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth)
                 .opacity(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth ? 0.55 : 1)
             }
@@ -299,11 +306,39 @@ struct GameView: View {
             return "先选房：低风险房更稳，高收益房更刺激。人物不会自由移动，主要操作是睡觉、升级、修门和布炮台。"
         }
         let doorRatio = gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1)
-        if isBreakingDoor && doorRatio < 0.45 { return "门快撑不住了：先点“一键修门”或进商店升级门，买完会回到当前战局。" }
-        if gameViewModel.player.bedLevel < 3 && gameViewModel.playerGold >= 120 * (gameViewModel.player.bedLevel + 1) { return "推荐节奏：先升床，提高睡觉收益，再补门和炮台。" }
-        if gameViewModel.turrets.isEmpty && gameViewModel.gameTime > 45 { return "敌人快到门口：至少放一座炮台，形成宿舍门口火力点。" }
-        if !gameViewModel.player.isSleeping && !isBreakingDoor { return "安全窗口：可以睡觉发育，听到破门提示再醒来操作。" }
+        if isBreakingDoor && doorRatio < 0.45 { return "门耐久偏低：先修门或升门，商店/修门不会重新开局。" }
+        if isBreakingDoor { return "敌人正在破门：优先醒来布防，补炮台或升门。" }
+        if gameViewModel.turrets.isEmpty && gameViewModel.gameTime > 30 { return "门前缺少炮台：现在先补一座炮台，比继续升床更安全。" }
+        if gameViewModel.player.bedLevel < 3 && gameViewModel.playerGold >= 120 * (gameViewModel.player.bedLevel + 1) { return "安全发育：金币够了，优先升级床提高持续收益。" }
+        if !gameViewModel.player.isSleeping { return "当前安全：可以立即睡觉继续发育。" }
         return "目标：守住房门到天亮，或用炮台提前击退敌人。"
+    }
+
+    private enum RecommendedCommand {
+        case wake, shop, items, repair, sleep, none
+    }
+
+    private var recommendedCommand: RecommendedCommand {
+        guard gameViewModel.phase != .choosingRoom else { return .none }
+        let doorRatio = gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1)
+        if isBreakingDoor && doorRatio < 0.45 && gameViewModel.playerGold >= 90 { return .repair }
+        if isBreakingDoor && gameViewModel.player.isSleeping { return .wake }
+        if gameViewModel.turrets.isEmpty && gameViewModel.gameTime > 30 { return .shop }
+        if gameViewModel.player.bedLevel < 3 && gameViewModel.playerGold >= 120 * (gameViewModel.player.bedLevel + 1) { return .shop }
+        if !gameViewModel.player.isSleeping && !isBreakingDoor { return .sleep }
+        return .none
+    }
+
+    private var sleepButtonSubtitle: String {
+        if isBreakingDoor { return "危险，立即操作" }
+        if gameViewModel.turrets.isEmpty && gameViewModel.gameTime > 30 { return "先补炮台更稳" }
+        return "安全时继续睡"
+    }
+
+    private var repairButtonSubtitle: String {
+        if gameViewModel.doorHealth >= gameViewModel.doorMaxHealth { return "门耐久已满" }
+        if gameViewModel.playerGold < 90 { return "金币不足，需要90" }
+        return "消耗90金币"
     }
 
     private var recommendedShopAction: String {
@@ -394,6 +429,7 @@ private struct PhoneMetrics {
 private struct CommandButtonStyle: ButtonStyle {
     let tint: Color
     let compact: Bool
+    var emphasized: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -401,13 +437,14 @@ private struct CommandButtonStyle: ButtonStyle {
             .padding(compact ? 8 : 10)
             .background(
                 LinearGradient(
-                    colors: [tint.opacity(configuration.isPressed ? 0.50 : 0.72), tint.opacity(0.28)],
+                    colors: [tint.opacity(configuration.isPressed ? 0.56 : (emphasized ? 0.90 : 0.62)), tint.opacity(emphasized ? 0.42 : 0.22)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.18), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(emphasized ? tint.opacity(0.95) : .white.opacity(0.16), lineWidth: emphasized ? 2 : 1))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .shadow(color: emphasized ? tint.opacity(0.35) : .clear, radius: emphasized ? 10 : 0)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }

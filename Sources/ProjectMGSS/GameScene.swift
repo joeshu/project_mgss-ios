@@ -62,7 +62,7 @@ final class GameScene: SKScene {
 
         addRoomGrid(in: playRect)
         addCorridorTiles(in: playRect)
-        addWarningDecorations(in: playRect)
+        addBuildSlotHints(in: playRect)
 
         doorNode.strokeColor = .white
         doorNode.lineWidth = 2
@@ -142,15 +142,21 @@ final class GameScene: SKScene {
         }
     }
 
-    private func addWarningDecorations(in rect: CGRect) {
-        for idx in 0..<5 {
-            let line = SKShapeNode(rectOf: CGSize(width: 52, height: 4), cornerRadius: 2)
-            line.fillColor = SKColor(red: 0.94, green: 0.70, blue: 0.18, alpha: 0.7)
-            line.strokeColor = .clear
-            line.zRotation = -.pi / 7
-            line.position = CGPoint(x: rect.minX + 50 + CGFloat(idx) * max(44, rect.width / 5.5), y: rect.maxY - 38)
-            addChild(line)
-            dynamicBaseNodes.append(line)
+    private func addBuildSlotHints(in rect: CGRect) {
+        let selectedSlots = gameState.selectedRoom.turretSlots
+        for slot in selectedSlots.prefix(3) {
+            let marker = SKShapeNode(circleOfRadius: 12)
+            marker.fillColor = SKColor(red: 0.10, green: 0.22, blue: 0.26, alpha: 0.72)
+            marker.strokeColor = SKColor(red: 0.38, green: 0.92, blue: 1.0, alpha: 0.70)
+            marker.lineWidth = 1.5
+            marker.position = mapPosition(slot)
+            addChild(marker)
+            dynamicBaseNodes.append(marker)
+
+            let plus = makeLabel("+", size: 16, color: SKColor(red: 0.58, green: 0.96, blue: 1.0, alpha: 0.92))
+            plus.position = CGPoint(x: marker.position.x, y: marker.position.y - 1)
+            addChild(plus)
+            dynamicBaseNodes.append(plus)
         }
     }
 
@@ -350,11 +356,9 @@ final class GameScene: SKScene {
             statusText = "失败：寝室失守"
         }
 
-        let banner = makeLabel(statusText, size: 16, color: .white)
-        banner.fontName = "AvenirNext-Bold"
-        banner.position = CGPoint(x: size.width / 2, y: boardRect().maxY - 26)
-        addChild(banner)
-        labelNodes.append(banner)
+        if gameState.phase == .choosingRoom || gameState.gameStatus != .playing {
+            addCallout(text: statusText, at: CGPoint(x: size.width / 2, y: boardRect().maxY - 24), tint: SKColor(red: 0.98, green: 0.78, blue: 0.34, alpha: 1.0))
+        }
 
         let ghostIcon = makeLabel(gameState.ghost.isFrozen ? "🧊" : ghostSymbol(), size: 24, color: .white)
         ghostIcon.position = CGPoint(x: ghostNode.position.x, y: ghostNode.position.y + 30)
@@ -366,10 +370,30 @@ final class GameScene: SKScene {
         addChild(sleepIcon)
         labelNodes.append(sleepIcon)
 
-        let doorTip = makeLabel(doorTipText(), size: 12, color: SKColor(red: 1.0, green: 0.86, blue: 0.48, alpha: 1.0))
-        doorTip.position = CGPoint(x: doorNode.position.x, y: doorNode.position.y + 25)
-        addChild(doorTip)
-        labelNodes.append(doorTip)
+        let tipOffset: CGFloat = gameState.selectedRoom.id == DormRoom.leftUpper.id || gameState.selectedRoom.id == DormRoom.leftLower.id ? 56 : -56
+        addCallout(
+            text: doorTipText(),
+            at: CGPoint(x: doorNode.position.x + tipOffset, y: doorNode.position.y + 30),
+            tint: doorTipColor()
+        )
+    }
+
+    private func addCallout(text: String, at position: CGPoint, tint: SKColor) {
+        let width = min(size.width - 38, max(74, CGFloat(text.count) * 8.4 + 18))
+        let bubble = SKShapeNode(rectOf: CGSize(width: width, height: 24), cornerRadius: 8)
+        bubble.position = position
+        bubble.fillColor = SKColor.black.withAlphaComponent(0.68)
+        bubble.strokeColor = tint.withAlphaComponent(0.82)
+        bubble.lineWidth = 1.2
+        bubble.zPosition = 20
+        addChild(bubble)
+        labelNodes.append(bubble)
+
+        let label = makeLabel(text, size: 11, color: tint)
+        label.position = CGPoint(x: position.x, y: position.y - 1)
+        label.zPosition = 21
+        addChild(label)
+        labelNodes.append(label)
     }
 
     private func ghostSymbol() -> String {
@@ -390,8 +414,14 @@ final class GameScene: SKScene {
     private func doorTipText() -> String {
         if gameState.phase == .choosingRoom { return "等待入住" }
         if isBreakingDoor { return "门口交战" }
-        if gameState.turrets.isEmpty { return "门前缺少炮台" }
+        if gameState.turrets.isEmpty { return "建造炮台 +" }
         return "火力覆盖中"
+    }
+
+    private func doorTipColor() -> SKColor {
+        if isBreakingDoor { return SKColor(red: 1.0, green: 0.30, blue: 0.22, alpha: 1.0) }
+        if gameState.turrets.isEmpty { return SKColor(red: 0.56, green: 0.95, blue: 1.0, alpha: 1.0) }
+        return SKColor(red: 0.56, green: 1.0, blue: 0.62, alpha: 1.0)
     }
 
     private func makePickupNode(for item: Item) -> SKNode {
