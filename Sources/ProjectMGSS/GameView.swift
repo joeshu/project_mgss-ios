@@ -26,7 +26,11 @@ struct GameView: View {
                         topHud(compact: metrics.isCompactPhone)
                         urgentCoachStrip(compact: metrics.isCompactPhone)
                         Spacer(minLength: metrics.scenePeekHeight)
-                        bottomCommandDeck(compact: metrics.isCompactPhone)
+                        if gameViewModel.phase == .choosingRoom {
+                            roomChoiceDeck(compact: metrics.isCompactPhone)
+                        } else {
+                            bottomCommandDeck(compact: metrics.isCompactPhone)
+                        }
                     }
                     .padding(.horizontal, metrics.horizontalPadding)
                     .padding(.top, max(8, metrics.safeArea.top + 4))
@@ -69,7 +73,7 @@ struct GameView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text("距天亮 \(max(0, 180 - gameViewModel.gameTime))s")
+                    Text(gameViewModel.phase == .choosingRoom ? "选房准备" : "距天亮 \(max(0, 180 - gameViewModel.gameTime))s")
                         .font(compact ? .caption.bold() : .subheadline.bold())
                         .foregroundColor(.yellow)
                     Text(threatLabel)
@@ -85,7 +89,7 @@ struct GameView: View {
                     phaseChip(title: phaseTitle, value: phaseValue, tint: phaseTint)
                     resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
                     resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
-                    resourceChip(icon: "🛏️", title: "床", value: "Lv.\(gameViewModel.player.bedLevel)", tint: .green)
+                    resourceChip(icon: "🏠", title: "房间", value: "风险\(gameViewModel.selectedRoom.risk)", tint: .purple)
                     resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
                     resourceChip(icon: "🛡️", title: "炮台", value: "\(gameViewModel.turrets.count)", tint: .blue)
                 }
@@ -94,22 +98,19 @@ struct GameView: View {
                     phaseChip(title: phaseTitle, value: phaseValue, tint: phaseTint)
                     resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
                     resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
-                    resourceChip(icon: "🛏️", title: "床", value: "Lv.\(gameViewModel.player.bedLevel)", tint: .green)
+                    resourceChip(icon: "🏠", title: "房间", value: gameViewModel.selectedRoom.name, tint: .purple)
                     resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
                 }
             }
 
             VStack(alignment: .leading, spacing: compact ? 4 : 5) {
                 meter(title: "房门耐久", value: gameViewModel.doorHealth, total: max(gameViewModel.doorMaxHealth, 1), tint: doorMeterTint)
-                meter(title: "猛鬼血量", value: gameViewModel.ghost.health, total: max(gameViewModel.ghost.maxHealth, 1), tint: .red)
+                meter(title: "敌人血量", value: gameViewModel.ghost.health, total: max(gameViewModel.ghost.maxHealth, 1), tint: .red)
             }
         }
         .padding(compact ? 10 : 12)
         .background(.black.opacity(0.62))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(phaseTint.opacity(0.78), lineWidth: 1.4)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(phaseTint.opacity(0.78), lineWidth: 1.4))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: phaseTint.opacity(0.30), radius: 14)
         .accessibilityElement(children: .contain)
@@ -118,8 +119,7 @@ struct GameView: View {
 
     private func urgentCoachStrip(compact: Bool) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: coachIcon)
-                .font(.caption.bold())
+            Image(systemName: coachIcon).font(.caption.bold())
             Text(coachText)
                 .font(compact ? .caption2.bold() : .caption.bold())
                 .lineLimit(compact ? 2 : 3)
@@ -130,11 +130,58 @@ struct GameView: View {
         .padding(.horizontal, compact ? 10 : 11)
         .padding(.vertical, compact ? 7 : 8)
         .background(coachTint.opacity(0.30))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(coachTint.opacity(0.70), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(coachTint.opacity(0.70), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func roomChoiceDeck(compact: Bool) -> some View {
+        VStack(spacing: compact ? 8 : 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("选一个房间入住")
+                        .font(compact ? .caption.bold() : .headline.bold())
+                    Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
+                        .font(.caption2)
+                        .opacity(0.76)
+                        .lineLimit(2)
+                }
+                Spacer()
+            }
+            .foregroundColor(.white)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+                ForEach(gameViewModel.availableRooms) { room in
+                    Button(action: { gameViewModel.chooseRoom(room) }) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text(room.name).font(.caption.bold()).lineLimit(1).minimumScaleFactor(0.75)
+                                Spacer()
+                                Text("风险 \(room.risk)").font(.caption2.bold()).foregroundColor(room.id == gameViewModel.selectedRoom.id ? .black : .yellow)
+                            }
+                            Text("收益 +\(room.rewardBonus)/秒 · 门 \(Int(room.doorBonus))")
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.72)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: compact ? 50 : 58)
+                        .padding(8)
+                        .foregroundColor(room.id == gameViewModel.selectedRoom.id ? .black : .white)
+                        .background(room.id == gameViewModel.selectedRoom.id ? Color.yellow : Color.white.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Button(action: { gameViewModel.beginNightDefense() }) {
+                commandButtonContent(title: "入住并开始夜晚", subtitle: "角色固定 · 开始睡觉发育", systemImage: "moon.stars.fill", compact: compact)
+            }
+            .buttonStyle(CommandButtonStyle(tint: .green, compact: compact))
+        }
+        .padding(compact ? 10 : 12)
+        .background(.black.opacity(0.68))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.yellow.opacity(0.50), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private func bottomCommandDeck(compact: Bool) -> some View {
@@ -143,8 +190,8 @@ struct GameView: View {
                 Button(action: { gameViewModel.toggleSleep() }) {
                     commandButtonContent(
                         title: gameViewModel.player.isSleeping ? "醒来布防" : "立即睡觉",
-                        subtitle: gameViewModel.player.isSleeping ? "破门危险时再醒" : "优先发育经济",
-                        systemImage: gameViewModel.player.isSleeping ? "figure.walk" : "bed.double.fill",
+                        subtitle: gameViewModel.player.isSleeping ? "破门危险时再醒" : "角色不移动，只切换状态",
+                        systemImage: gameViewModel.player.isSleeping ? "figure.stand" : "bed.double.fill",
                         compact: compact
                     )
                 }
@@ -172,49 +219,58 @@ struct GameView: View {
         }
         .padding(compact ? 10 : 12)
         .background(.black.opacity(0.64))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.16), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.16), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityElement(children: .contain)
     }
 
     private var phaseTitle: String {
+        if gameViewModel.phase == .choosingRoom { return "选房" }
         if gameViewModel.gameTime < 45 { return "发育期" }
         if gameViewModel.gameTime < 110 { return "守门期" }
         return "反击期"
     }
 
     private var phaseValue: String {
+        if gameViewModel.phase == .choosingRoom { return "先定房间" }
         if gameViewModel.gameTime < 45 { return "睡觉攒钱" }
         if gameViewModel.gameTime < 110 { return "升级门" }
         return "炮台输出"
     }
 
     private var phaseSubtitle: String {
+        if gameViewModel.phase == .choosingRoom { return "选房后人物固定，进入宿舍防守循环" }
         if gameViewModel.player.isSleeping { return "睡觉发育中 · 金币和电力持续增长" }
-        if gameViewModel.ghost.state == .attacking { return "猛鬼破门中 · 先修门再补炮台" }
+        if isBreakingDoor { return "敌人破门中 · 先修门再补炮台" }
         return "布防窗口 · 按节奏升级床、门、炮台"
     }
 
     private var phaseTint: Color {
+        if gameViewModel.phase == .choosingRoom { return .yellow }
         if gameViewModel.gameTime < 45 { return .green }
         if gameViewModel.gameTime < 110 { return .orange }
         return .red
     }
 
+    private var isBreakingDoor: Bool {
+        gameViewModel.ghost.state == .attacking || gameViewModel.ghost.state == .enraged
+    }
+
     private var threatLabel: String {
+        if gameViewModel.phase == .choosingRoom { return "威胁：未入夜" }
         if gameViewModel.ghost.isFrozen { return "威胁：冻结" }
         switch gameViewModel.ghost.state {
+        case .scouting: return "威胁：巡查走廊"
+        case .approaching: return "威胁：逼近房门"
         case .attacking: return "威胁：正在破门"
-        case .chasing: return gameViewModel.gameTime > 120 ? "威胁：狂暴逼近" : "威胁：走廊逼近"
+        case .enraged: return "威胁：狂暴破门"
         }
     }
 
     private var threatColor: Color {
+        if gameViewModel.phase == .choosingRoom { return .yellow }
         if gameViewModel.ghost.isFrozen { return .cyan }
-        return gameViewModel.ghost.state == .attacking ? .red : .orange
+        return isBreakingDoor ? .red : .orange
     }
 
     private var doorMeterTint: Color {
@@ -225,32 +281,29 @@ struct GameView: View {
     }
 
     private var coachTint: Color {
-        if gameViewModel.ghost.state == .attacking || gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1) < 0.30 { return .red }
+        if gameViewModel.phase == .choosingRoom { return .yellow }
+        if isBreakingDoor || gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1) < 0.30 { return .red }
         if gameViewModel.playerGold >= 120 * (gameViewModel.player.bedLevel + 1) && gameViewModel.player.bedLevel < 5 { return .green }
         return phaseTint
     }
 
     private var coachIcon: String {
-        if gameViewModel.ghost.state == .attacking { return "exclamationmark.triangle.fill" }
+        if gameViewModel.phase == .choosingRoom { return "house.fill" }
+        if isBreakingDoor { return "exclamationmark.triangle.fill" }
         if gameViewModel.player.isSleeping { return "moon.zzz.fill" }
         return "lightbulb.fill"
     }
 
     private var coachText: String {
+        if gameViewModel.phase == .choosingRoom {
+            return "先选房：低风险房更稳，高收益房更刺激。人物不会自由移动，主要操作是睡觉、升级、修门和布炮台。"
+        }
         let doorRatio = gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1)
-        if gameViewModel.ghost.state == .attacking && doorRatio < 0.45 {
-            return "门快撑不住了：先点“一键修门”或进商店升级门，买完会回到当前战局。"
-        }
-        if gameViewModel.player.bedLevel < 3 && gameViewModel.playerGold >= 120 * (gameViewModel.player.bedLevel + 1) {
-            return "推荐节奏：先升床，提高睡觉收益，再补门和炮台。"
-        }
-        if gameViewModel.turrets.isEmpty && gameViewModel.gameTime > 55 {
-            return "猛鬼快到门口：至少放一座炮台，形成宿舍门口火力点。"
-        }
-        if !gameViewModel.player.isSleeping && gameViewModel.ghost.state == .chasing {
-            return "安全窗口：可以睡觉发育，听到破门提示再醒来操作。"
-        }
-        return "目标：守住房门到天亮，或用炮台提前击退猛鬼。"
+        if isBreakingDoor && doorRatio < 0.45 { return "门快撑不住了：先点“一键修门”或进商店升级门，买完会回到当前战局。" }
+        if gameViewModel.player.bedLevel < 3 && gameViewModel.playerGold >= 120 * (gameViewModel.player.bedLevel + 1) { return "推荐节奏：先升床，提高睡觉收益，再补门和炮台。" }
+        if gameViewModel.turrets.isEmpty && gameViewModel.gameTime > 45 { return "敌人快到门口：至少放一座炮台，形成宿舍门口火力点。" }
+        if !gameViewModel.player.isSleeping && !isBreakingDoor { return "安全窗口：可以睡觉发育，听到破门提示再醒来操作。" }
+        return "目标：守住房门到天亮，或用炮台提前击退敌人。"
     }
 
     private var recommendedShopAction: String {
@@ -292,26 +345,16 @@ struct GameView: View {
             }
             .font(.caption2)
             .foregroundColor(.white.opacity(0.88))
-            ProgressView(value: Double(value), total: Double(total))
-                .tint(tint)
+            ProgressView(value: Double(value), total: Double(total)).tint(tint)
         }
     }
 
     private func commandButtonContent(title: String, subtitle: String, systemImage: String, compact: Bool) -> some View {
         HStack(spacing: compact ? 6 : 8) {
-            Image(systemName: systemImage)
-                .font(compact ? .subheadline : .headline)
-                .frame(width: compact ? 18 : 22)
+            Image(systemName: systemImage).font(compact ? .subheadline : .headline).frame(width: compact ? 18 : 22)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(compact ? .caption.bold() : .subheadline.bold())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-                Text(subtitle)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                    .opacity(0.82)
+                Text(title).font(compact ? .caption.bold() : .subheadline.bold()).lineLimit(1).minimumScaleFactor(0.78)
+                Text(subtitle).font(.caption2).lineLimit(1).minimumScaleFactor(0.72).opacity(0.82)
             }
             Spacer(minLength: 0)
         }
@@ -321,23 +364,18 @@ struct GameView: View {
 
     private var resultOverlay: some View {
         VStack(spacing: 16) {
-            Text(gameViewModel.gameStatus == .won ? "天亮了，守住了！" : "猛鬼破门，宿舍失守")
+            Text(gameViewModel.gameStatus == .won ? "天亮了，守住了！" : "房门被破，宿舍失守")
                 .font(.title2.bold())
-            Text(gameViewModel.gameStatus == .won ? "继续提高床、门和炮台等级，可以挑战更高难度。" : "宿舍防守策略：先睡觉攒金币，再升级门和床，最后补炮台反击。")
+            Text(gameViewModel.gameStatus == .won ? "本局选择了 \(gameViewModel.selectedRoom.name)，坚持 \(gameViewModel.gameTime) 秒，第 \(gameViewModel.wave) 波。" : "复盘：低风险房更稳；先升床发育，再保门和补炮台。")
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
-            Button("重新开局") {
-                gameViewModel.startGame()
-            }
-            .buttonStyle(.borderedProminent)
+            Button("重新选房开局") { gameViewModel.startGame() }
+                .buttonStyle(.borderedProminent)
         }
         .foregroundColor(.white)
         .padding(24)
         .background(.black.opacity(0.82))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.yellow.opacity(0.7), lineWidth: 1.5)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.yellow.opacity(0.7), lineWidth: 1.5))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .padding()
     }
@@ -368,10 +406,7 @@ private struct CommandButtonStyle: ButtonStyle {
                     endPoint: .bottomTrailing
                 )
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(.white.opacity(0.18), lineWidth: 1)
-            )
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.18), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)

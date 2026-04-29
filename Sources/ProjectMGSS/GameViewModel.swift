@@ -14,16 +14,23 @@ class GameViewModel: ObservableObject {
     @Published var playerElectricity: Int
     @Published var doorHealth: Float
     @Published var doorMaxHealth: Float
+    @Published var phase: GamePhase
+    @Published var selectedRoom: DormRoom
+    @Published var wave: Int
 
     let gameScene: GameScene
+    let availableRooms = DormRoom.allCases
 
     init() {
-        let initialPlayer = Player()
+        let initialRoom = DormRoom.leftLower
+        let initialPlayer = Player(room: initialRoom)
         let initialGhost = Ghost()
         let initialTurrets: [Turret] = []
         let initialItems: [Item] = []
         let initialGameTime = 0
         let initialGameStatus = GameStatus.playing
+        let initialPhase = GamePhase.choosingRoom
+        let initialWave = 1
 
         self.player = initialPlayer
         self.ghost = initialGhost
@@ -35,6 +42,9 @@ class GameViewModel: ObservableObject {
         self.playerElectricity = initialPlayer.electricity
         self.doorHealth = initialPlayer.doorHealth
         self.doorMaxHealth = initialPlayer.doorMaxHealth
+        self.phase = initialPhase
+        self.selectedRoom = initialRoom
+        self.wave = initialWave
 
         let initialState = GameState(
             player: initialPlayer,
@@ -42,7 +52,10 @@ class GameViewModel: ObservableObject {
             turrets: initialTurrets,
             items: initialItems,
             gameTime: initialGameTime,
-            gameStatus: initialGameStatus
+            gameStatus: initialGameStatus,
+            phase: initialPhase,
+            selectedRoom: initialRoom,
+            wave: initialWave
         )
         self.gameScene = GameScene(gameState: initialState)
         self.gameScene.onStateChange = { [weak self] state in
@@ -53,12 +66,15 @@ class GameViewModel: ObservableObject {
     }
 
     func startGame() {
-        player = Player()
+        let room = selectedRoom
+        player = Player(room: room)
         ghost = Ghost()
         turrets = []
         items = []
         gameTime = 0
         gameStatus = .playing
+        phase = .choosingRoom
+        wave = 1
         playerGold = player.gold
         playerElectricity = player.electricity
         doorHealth = player.doorHealth
@@ -66,7 +82,32 @@ class GameViewModel: ObservableObject {
         updateGameState()
     }
 
+    func chooseRoom(_ room: DormRoom) {
+        selectedRoom = room
+        player = Player(room: room)
+        playerGold = player.gold
+        playerElectricity = player.electricity
+        doorHealth = player.doorHealth
+        doorMaxHealth = player.doorMaxHealth
+        turrets = []
+        items = []
+        ghost = Ghost()
+        gameTime = 0
+        wave = 1
+        gameStatus = .playing
+        phase = .choosingRoom
+        updateGameState()
+    }
+
+    func beginNightDefense() {
+        guard gameStatus == .playing else { return }
+        phase = .nightDefense
+        player.isSleeping = true
+        updateGameState()
+    }
+
     func toggleSleep() {
+        guard phase == .nightDefense else { return }
         player.isSleeping.toggle()
         updateGameState()
     }
@@ -75,10 +116,13 @@ class GameViewModel: ObservableObject {
         startGame()
     }
 
-    func addTurret(at position: Position, cost: Int = 160, range: Float = 4.0, damage: Float = 45.0) {
+    func addTurret(at position: Position? = nil, cost: Int = 160, range: Float = 4.0, damage: Float = 45.0) {
+        guard phase == .nightDefense else { return }
         guard playerGold >= cost else { return }
 
-        let turret = Turret(position: position, range: range, damage: damage)
+        let slotIndex = min(turrets.count, selectedRoom.turretSlots.count - 1)
+        let turretPosition = position ?? selectedRoom.turretSlots[max(0, slotIndex)]
+        let turret = Turret(position: turretPosition, range: range, damage: damage)
         turrets.append(turret)
         playerGold -= cost
         updateGameState()
@@ -103,8 +147,8 @@ class GameViewModel: ObservableObject {
         playerGold -= goldCost
         playerElectricity -= electricityCost
         player.doorLevel = nextLevel
-        doorMaxHealth = 900.0 + Float(nextLevel - 1) * 550.0
-        doorHealth = min(doorMaxHealth, doorHealth + 550.0)
+        doorMaxHealth = max(700.0, 900.0 + selectedRoom.doorBonus) + Float(nextLevel - 1) * 560.0
+        doorHealth = min(doorMaxHealth, doorHealth + 560.0)
         player.doorMaxHealth = doorMaxHealth
         player.doorHealth = doorHealth
         updateGameState()
@@ -144,6 +188,9 @@ class GameViewModel: ObservableObject {
         items = state.items
         gameTime = state.gameTime
         gameStatus = state.gameStatus
+        phase = state.phase
+        selectedRoom = state.selectedRoom
+        wave = state.wave
         playerGold = state.player.gold
         playerElectricity = state.player.electricity
         doorHealth = state.player.doorHealth
@@ -155,6 +202,7 @@ class GameViewModel: ObservableObject {
         player.electricity = playerElectricity
         player.doorHealth = doorHealth
         player.doorMaxHealth = doorMaxHealth
+        player.position = selectedRoom.playerPosition
         player.isDoorBroken = doorHealth <= 0
         ghost.health = max(ghost.health, 0)
 
@@ -164,7 +212,10 @@ class GameViewModel: ObservableObject {
             turrets: turrets,
             items: items,
             gameTime: gameTime,
-            gameStatus: gameStatus
+            gameStatus: gameStatus,
+            phase: phase,
+            selectedRoom: selectedRoom,
+            wave: wave
         )
     }
 }

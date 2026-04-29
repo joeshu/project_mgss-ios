@@ -52,15 +52,15 @@ struct ShopView: View {
                             )
                         }
 
-                        shopSection(title: "③ 最后反击", subtitle: "门前布置炮台，形成火力点，拖到天亮或击退敌人。") {
+                        shopSection(title: "③ 最后反击", subtitle: "炮台自动落在所选房间门口插槽，人物不用移动。") {
                             shopCard(
                                 icon: "🟢",
                                 title: "基础炮台",
-                                subtitle: "攻击力 45 | 射程 4.0 | 适合前期补伤害。",
+                                subtitle: "攻击力 45 | 射程 4.0 | 优先覆盖当前房门。",
                                 price: "160 金币",
                                 tint: .blue,
                                 disabled: viewModel.playerGold < 160,
-                                action: { viewModel.addTurret(at: Position(x: 2.0, y: 3.2), cost: 160, range: 4.0, damage: 45.0) }
+                                action: { viewModel.addTurret(cost: 160, range: 4.0, damage: 45.0) }
                             )
 
                             shopCard(
@@ -70,7 +70,7 @@ struct ShopView: View {
                                 price: "420 金币",
                                 tint: .cyan,
                                 disabled: viewModel.playerGold < 420,
-                                action: { viewModel.addTurret(at: Position(x: 4.0, y: 3.2), cost: 420, range: 4.8, damage: 95.0) }
+                                action: { viewModel.addTurret(cost: 420, range: 4.8, damage: 95.0) }
                             )
                         }
                     }
