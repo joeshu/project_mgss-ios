@@ -142,6 +142,7 @@ struct GameView: View {
                     systemImage: expanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill",
                     expanded: expanded,
                     tint: phaseTint,
+                    subtle: gameViewModel.phase == .choosingRoom,
                     action: { withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) { isTopPanelExpanded.toggle() } }
                 )
                 .padding(.horizontal, metrics.horizontalPadding)
@@ -171,6 +172,7 @@ struct GameView: View {
                     systemImage: expanded ? "chevron.down.circle.fill" : "chevron.up.circle.fill",
                     expanded: expanded,
                     tint: coachTint,
+                    subtle: gameViewModel.phase == .choosingRoom,
                     action: { withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) { isBottomPanelExpanded.toggle() } }
                 )
                 .padding(.horizontal, metrics.horizontalPadding)
@@ -181,26 +183,26 @@ struct GameView: View {
         }
     }
 
-    private func collapseHandle(title: String, systemImage: String, expanded: Bool, tint: Color, action: @escaping () -> Void) -> some View {
+    private func collapseHandle(title: String, systemImage: String, expanded: Bool, tint: Color, subtle: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Capsule()
-                    .fill(Color.white.opacity(0.36))
+                    .fill(Color.white.opacity(subtle ? 0.18 : 0.36))
                     .frame(width: 28, height: 4)
                 Text(expanded ? "收起\(title)" : "展开\(title)")
                     .font(.caption.bold())
-                    .foregroundColor(.white)
+                    .foregroundColor(.white.opacity(subtle ? 0.72 : 1))
                 Spacer(minLength: 0)
                 Image(systemName: systemImage)
-                    .foregroundColor(tint)
+                    .foregroundColor(tint.opacity(subtle ? 0.66 : 1))
                     .font(.caption.bold())
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(.black.opacity(0.72))
+            .background(subtle ? Color(red: 0.03, green: 0.035, blue: 0.055) : .black.opacity(0.72))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(tint.opacity(0.55), lineWidth: 1)
+                    .stroke(tint.opacity(subtle ? 0.28 : 0.55), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
@@ -253,6 +255,17 @@ struct GameView: View {
             .padding(.horizontal, metrics.horizontalPadding)
             .padding(.top, collapsedChrome ? 6 : 8)
             .padding(.bottom, collapsedChrome ? 4 : max(8, metrics.safeArea.bottom + 8))
+    }
+
+    private var roomSelectionPanelBackground: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 0.045, green: 0.045, blue: 0.070),
+                Color(red: 0.070, green: 0.060, blue: 0.085)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     private func topHud(compact: Bool, condensed: Bool) -> some View {
@@ -315,17 +328,34 @@ struct GameView: View {
     }
 
     private func roomChoiceDeck(compact: Bool, condensed: Bool) -> some View {
-        VStack(spacing: condensed ? 6 : (compact ? 8 : 10)) {
+        VStack(spacing: condensed ? 7 : (compact ? 9 : 11)) {
+            HStack(spacing: 8) {
+                Image(systemName: "bed.double.fill")
+                    .font(.caption.bold())
+                    .foregroundColor(.yellow)
+                Text("选房操作区")
+                    .font(.caption.bold())
+                    .foregroundColor(.white.opacity(0.88))
+                Spacer(minLength: 8)
+                Text("地图仅看位置")
+                    .font(.caption2.bold())
+                    .foregroundColor(.white.opacity(0.58))
+            }
+
             selectedRoomSummaryCard(compact: compact)
 
             roomSelectionStrip(compact: compact)
 
             beginNightButton(compact: compact)
         }
-        .padding(condensed ? 8 : (compact ? 10 : 12))
-        .background(.black.opacity(condensed ? 0.54 : 0.68))
-        .overlay(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous).stroke(Color.yellow.opacity(0.50), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous))
+        .padding(condensed ? 10 : (compact ? 12 : 14))
+        .background(roomSelectionPanelBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: condensed ? 18 : 20, style: .continuous)
+                .stroke(Color.yellow.opacity(0.70), lineWidth: 1.1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: condensed ? 18 : 20, style: .continuous))
+        .shadow(color: Color.black.opacity(0.46), radius: 18, x: 0, y: -6)
     }
 
     private func selectedRoomSummaryCard(compact: Bool) -> some View {
@@ -347,17 +377,17 @@ struct GameView: View {
                     .foregroundColor(.black)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.yellow.opacity(0.92))
+                    .background(Color.yellow)
                     .clipShape(Capsule())
             }
 
             HStack(spacing: compact ? 6 : 8) {
                 roomSummaryPill(title: "风险", value: "\(gameViewModel.selectedRoom.risk)级", tint: roomRiskColor(for: gameViewModel.selectedRoom))
-                roomSummaryPill(title: "金币", value: roomRewardText(for: gameViewModel.selectedRoom), tint: .green)
+                roomSummaryPill(title: "产出", value: roomRewardText(for: gameViewModel.selectedRoom), tint: .white)
                 roomSummaryPill(title: "门耐久", value: roomDoorHealthText(for: gameViewModel.selectedRoom), tint: .cyan)
             }
 
-            Text("在地图上确认位置，下方切换房间；确认后进入夜晚防守。")
+            Text("地图只看房间位置；下方切换，确认后进入夜晚防守。")
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.70))
                 .lineLimit(compact ? 2 : 1)
@@ -366,7 +396,7 @@ struct GameView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, compact ? 10 : 12)
         .padding(.vertical, compact ? 9 : 11)
-        .background(Color.white.opacity(0.10))
+        .background(Color(red: 0.08, green: 0.075, blue: 0.10))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.yellow.opacity(0.42), lineWidth: 1)
@@ -400,13 +430,13 @@ struct GameView: View {
                         .minimumScaleFactor(0.78)
                     Text(isSelected ? "已选择 ✓" : "选择")
                         .font(.caption2.bold())
-                        .foregroundColor(isSelected ? .black.opacity(0.78) : .yellow.opacity(0.82))
+                        .foregroundColor(isSelected ? .black.opacity(0.78) : .white.opacity(0.62))
                 }
             }
             .foregroundColor(isSelected ? .black : .white)
             .padding(.horizontal, compact ? 9 : 10)
             .padding(.vertical, compact ? 7 : 8)
-            .background(isSelected ? Color.yellow : Color.white.opacity(0.10))
+            .background(isSelected ? Color.yellow : Color(red: 0.11, green: 0.105, blue: 0.13))
             .overlay(
                 Capsule()
                     .stroke(isSelected ? Color.yellow.opacity(0.95) : Color.white.opacity(0.14), lineWidth: 1)
@@ -431,7 +461,11 @@ struct GameView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(tint.opacity(0.12))
+        .background(Color(red: 0.11, green: 0.105, blue: 0.13))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(tint.opacity(0.32), lineWidth: 1)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
