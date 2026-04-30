@@ -5,10 +5,13 @@ struct GameView: View {
     @StateObject private var gameViewModel = GameViewModel()
     @State private var isShopPresented = false
     @State private var isRulesPresented = false
+    @State private var isTopPanelExpanded = false
+    @State private var isBottomPanelExpanded = true
 
     var body: some View {
         GeometryReader { geometry in
             let metrics = PhoneMetrics(size: geometry.size, safeArea: geometry.safeAreaInsets)
+            let shouldUseCollapsedChrome = metrics.needsCollapsedChrome
 
             NavigationStack {
                 ZStack {
@@ -23,15 +26,15 @@ struct GameView: View {
                         .ignoresSafeArea()
                 }
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    topInsetContent(metrics: metrics)
+                    topInsetContent(metrics: metrics, collapsedChrome: shouldUseCollapsedChrome)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    bottomInsetContent(metrics: metrics)
+                    bottomInsetContent(metrics: metrics, collapsedChrome: shouldUseCollapsedChrome)
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay(alignment: .top) {
-                    gameplayOverlay(metrics: metrics)
+                    gameplayOverlay(metrics: metrics, collapsedChrome: shouldUseCollapsedChrome)
                 }
                 .overlay(alignment: .center) {
                     if gameViewModel.gameStatus != .playing {
@@ -54,27 +57,35 @@ struct GameView: View {
     }
 
     @ViewBuilder
-    private func topInsetContent(metrics: PhoneMetrics) -> some View {
+    private func topInsetContent(metrics: PhoneMetrics, collapsedChrome: Bool) -> some View {
         let compact = metrics.isCompactPhone
         if gameViewModel.phase == .choosingRoom {
-            choosingRoomTopInset(compact: compact, metrics: metrics)
+            adaptiveTopPanel(expanded: isTopPanelExpanded, metrics: metrics, collapsedChrome: collapsedChrome) {
+                choosingRoomTopInset(compact: compact, metrics: metrics, collapsedChrome: collapsedChrome)
+            }
         } else {
-            nightDefenseTopInset(compact: compact, metrics: metrics)
+            adaptiveTopPanel(expanded: isTopPanelExpanded, metrics: metrics, collapsedChrome: collapsedChrome) {
+                nightDefenseTopInset(compact: compact, metrics: metrics, collapsedChrome: collapsedChrome)
+            }
         }
     }
 
     @ViewBuilder
-    private func bottomInsetContent(metrics: PhoneMetrics) -> some View {
+    private func bottomInsetContent(metrics: PhoneMetrics, collapsedChrome: Bool) -> some View {
         let compact = metrics.isCompactPhone
         if gameViewModel.phase == .choosingRoom {
-            choosingRoomBottomInset(compact: compact, metrics: metrics)
+            adaptiveBottomPanel(expanded: isBottomPanelExpanded, metrics: metrics, collapsedChrome: collapsedChrome) {
+                choosingRoomBottomInset(compact: compact, metrics: metrics, collapsedChrome: collapsedChrome)
+            }
         } else {
-            nightDefenseBottomInset(compact: compact, metrics: metrics)
+            adaptiveBottomPanel(expanded: isBottomPanelExpanded, metrics: metrics, collapsedChrome: collapsedChrome) {
+                nightDefenseBottomInset(compact: compact, metrics: metrics, collapsedChrome: collapsedChrome)
+            }
         }
     }
 
     @ViewBuilder
-    private func gameplayOverlay(metrics: PhoneMetrics) -> some View {
+    private func gameplayOverlay(metrics: PhoneMetrics, collapsedChrome: Bool) -> some View {
         if shouldShowCriticalOverlay {
             HStack(spacing: 8) {
                 Image(systemName: coachIcon)
@@ -94,28 +105,127 @@ struct GameView: View {
                     .stroke(coachTint.opacity(0.95), lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .padding(.top, metrics.safeArea.top + (metrics.isCompactPhone ? 78 : 92))
+            .padding(.top, criticalOverlayTopPadding(metrics: metrics, collapsedChrome: collapsedChrome))
             .padding(.horizontal, metrics.horizontalPadding)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 
-    private func choosingRoomTopInset(compact: Bool, metrics: PhoneMetrics) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+    private func criticalOverlayTopPadding(metrics: PhoneMetrics, collapsedChrome: Bool) -> CGFloat {
+        topChromeReservedHeight(metrics: metrics, collapsedChrome: collapsedChrome) + 8
+    }
+
+    private func topChromeReservedHeight(metrics: PhoneMetrics, collapsedChrome: Bool) -> CGFloat {
+        let handleHeight: CGFloat = collapsedChrome ? 44 : 0
+        let panelHeight: CGFloat = collapsedChrome
+            ? (isTopPanelExpanded ? expandedTopPanelEstimatedHeight(metrics: metrics) : 0)
+            : expandedTopPanelEstimatedHeight(metrics: metrics)
+        let topSpacing: CGFloat = collapsedChrome ? max(4, metrics.safeArea.top + 2) : 0
+        let contentGap: CGFloat = panelHeight > 0 ? 6 : 0
+        return topSpacing + handleHeight + contentGap + panelHeight
+    }
+
+    private func expandedTopPanelEstimatedHeight(metrics: PhoneMetrics) -> CGFloat {
+        switch gameViewModel.phase {
+        case .choosingRoom:
+            return metrics.isCompactPhone ? 72 : 88
+        case .nightDefense:
+            return metrics.isCompactPhone ? 96 : 118
+        }
+    }
+
+    private func adaptiveTopPanel<Content: View>(expanded: Bool, metrics: PhoneMetrics, collapsedChrome: Bool, @ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            if collapsedChrome {
+                collapseHandle(
+                    title: gameViewModel.phase == .choosingRoom ? "顶部信息" : "战况总览",
+                    systemImage: expanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill",
+                    expanded: expanded,
+                    tint: phaseTint,
+                    action: { withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) { isTopPanelExpanded.toggle() } }
+                )
+                .padding(.horizontal, metrics.horizontalPadding)
+                .padding(.top, max(4, metrics.safeArea.top + 2))
+
+                if expanded {
+                    content()
+                        .padding(.top, 6)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            } else {
+                content()
+            }
+        }
+    }
+
+    private func adaptiveBottomPanel<Content: View>(expanded: Bool, metrics: PhoneMetrics, collapsedChrome: Bool, @ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            if collapsedChrome {
+                if expanded {
+                    content()
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                collapseHandle(
+                    title: gameViewModel.phase == .choosingRoom ? "选房操作" : "操作面板",
+                    systemImage: expanded ? "chevron.down.circle.fill" : "chevron.up.circle.fill",
+                    expanded: expanded,
+                    tint: coachTint,
+                    action: { withAnimation(.spring(response: 0.26, dampingFraction: 0.88)) { isBottomPanelExpanded.toggle() } }
+                )
+                .padding(.horizontal, metrics.horizontalPadding)
+                .padding(.bottom, max(6, metrics.safeArea.bottom + 6))
+            } else {
+                content()
+            }
+        }
+    }
+
+    private func collapseHandle(title: String, systemImage: String, expanded: Bool, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Capsule()
+                    .fill(Color.white.opacity(0.36))
+                    .frame(width: 28, height: 4)
+                Text(expanded ? "收起\(title)" : "展开\(title)")
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+                Spacer(minLength: 0)
+                Image(systemName: systemImage)
+                    .foregroundColor(tint)
+                    .font(.caption.bold())
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(.black.opacity(0.72))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(tint.opacity(0.55), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(expanded ? "收起\(title)" : "展开\(title)")
+    }
+
+    private func choosingRoomTopInset(compact: Bool, metrics: PhoneMetrics, collapsedChrome: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 4 : 6) {
             HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("选择宿舍")
-                        .font(compact ? .subheadline.bold() : .headline.bold())
+                        .font(compact ? .caption.bold() : .subheadline.bold())
                         .foregroundColor(.white)
-                    Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.76))
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
+                    if !collapsedChrome {
+                        Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.76))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.82)
+                    }
                 }
                 Spacer(minLength: 8)
                 Text("选房准备")
-                    .font(compact ? .caption.bold() : .subheadline.bold())
+                    .font(.caption.bold())
                     .foregroundColor(.yellow)
             }
 
@@ -125,42 +235,44 @@ struct GameView: View {
             }
         }
         .padding(.horizontal, metrics.horizontalPadding)
-        .padding(.top, max(6, metrics.safeArea.top + 4))
-        .padding(.bottom, 6)
+        .padding(.top, collapsedChrome ? 4 : max(6, metrics.safeArea.top + 4))
+        .padding(.bottom, collapsedChrome ? 4 : 6)
     }
 
-    private func nightDefenseTopInset(compact: Bool, metrics: PhoneMetrics) -> some View {
-        topHud(compact: compact)
+    private func nightDefenseTopInset(compact: Bool, metrics: PhoneMetrics, collapsedChrome: Bool) -> some View {
+        topHud(compact: compact, condensed: collapsedChrome)
             .padding(.horizontal, metrics.horizontalPadding)
-            .padding(.top, max(6, metrics.safeArea.top + 4))
-            .padding(.bottom, 6)
+            .padding(.top, collapsedChrome ? 4 : max(6, metrics.safeArea.top + 4))
+            .padding(.bottom, collapsedChrome ? 4 : 6)
     }
 
-    private func choosingRoomBottomInset(compact: Bool, metrics: PhoneMetrics) -> some View {
-        roomChoiceDeck(compact: compact)
+    private func choosingRoomBottomInset(compact: Bool, metrics: PhoneMetrics, collapsedChrome: Bool) -> some View {
+        roomChoiceDeck(compact: compact, condensed: collapsedChrome)
             .padding(.horizontal, metrics.horizontalPadding)
-            .padding(.top, 8)
-            .padding(.bottom, max(8, metrics.safeArea.bottom + 8))
+            .padding(.top, collapsedChrome ? 6 : 8)
+            .padding(.bottom, collapsedChrome ? 4 : max(8, metrics.safeArea.bottom + 8))
     }
 
-    private func nightDefenseBottomInset(compact: Bool, metrics: PhoneMetrics) -> some View {
-        bottomCommandDeck(compact: compact)
+    private func nightDefenseBottomInset(compact: Bool, metrics: PhoneMetrics, collapsedChrome: Bool) -> some View {
+        bottomCommandDeck(compact: compact, condensed: collapsedChrome)
             .padding(.horizontal, metrics.horizontalPadding)
-            .padding(.top, 8)
-            .padding(.bottom, max(8, metrics.safeArea.bottom + 8))
+            .padding(.top, collapsedChrome ? 6 : 8)
+            .padding(.bottom, collapsedChrome ? 4 : max(8, metrics.safeArea.bottom + 8))
     }
 
-    private func topHud(compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+    private func topHud(compact: Bool, condensed: Bool) -> some View {
+        VStack(alignment: .leading, spacing: condensed ? 4 : (compact ? 6 : 8)) {
             topHeadlineRow(compact: compact)
             topResourceStrip(compact: compact)
-            topMeterStrip(compact: compact)
+            if !condensed {
+                topMeterStrip(compact: compact)
+            }
         }
-        .padding(compact ? 10 : 12)
-        .background(.black.opacity(0.52))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(phaseTint.opacity(0.62), lineWidth: 1.2))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: phaseTint.opacity(0.22), radius: 12)
+        .padding(condensed ? 8 : (compact ? 10 : 12))
+        .background(.black.opacity(condensed ? 0.40 : 0.52))
+        .overlay(RoundedRectangle(cornerRadius: condensed ? 14 : 16, style: .continuous).stroke(phaseTint.opacity(0.62), lineWidth: 1.2))
+        .clipShape(RoundedRectangle(cornerRadius: condensed ? 14 : 16, style: .continuous))
+        .shadow(color: phaseTint.opacity(0.22), radius: condensed ? 8 : 12)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("游戏状态，金币 \(gameViewModel.playerGold)，电力 \(gameViewModel.playerElectricity)，门耐久 \(Int(gameViewModel.doorHealth))")
     }
@@ -207,23 +319,27 @@ struct GameView: View {
         }
     }
 
-    private func roomChoiceDeck(compact: Bool) -> some View {
-        VStack(spacing: compact ? 8 : 10) {
-            roomDiagramLocator(compact: compact)
+    private func roomChoiceDeck(compact: Bool, condensed: Bool) -> some View {
+        VStack(spacing: condensed ? 6 : (compact ? 8 : 10)) {
+            if !condensed {
+                roomDiagramLocator(compact: compact)
+            }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: condensed ? 6 : 8) {
                 ForEach(gameViewModel.availableRooms) { room in
                     roomCard(room, compact: compact)
                 }
             }
 
-            roomSelectionConfirmation(compact: compact)
+            if !condensed {
+                roomSelectionConfirmation(compact: compact)
+            }
             beginNightButton(compact: compact)
         }
-        .padding(compact ? 10 : 12)
-        .background(.black.opacity(0.68))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.yellow.opacity(0.50), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(condensed ? 8 : (compact ? 10 : 12))
+        .background(.black.opacity(condensed ? 0.54 : 0.68))
+        .overlay(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous).stroke(Color.yellow.opacity(0.50), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous))
     }
 
     private func roomDiagramLocator(compact: Bool) -> some View {
@@ -345,23 +461,25 @@ struct GameView: View {
         .accessibilityLabel("快速状态，\(gameViewModel.player.isSleeping ? "睡觉发育中" : quickActionText)，\(activeEffectSummary)")
     }
 
-    private func bottomCommandDeck(compact: Bool) -> some View {
-        VStack(spacing: compact ? 8 : 10) {
-            quickStatusRow(compact: compact)
-                .opacity(isAnySheetPresented ? 0.32 : 1)
+    private func bottomCommandDeck(compact: Bool, condensed: Bool) -> some View {
+        VStack(spacing: condensed ? 6 : (compact ? 8 : 10)) {
+            if !condensed {
+                quickStatusRow(compact: compact)
+                    .opacity(isAnySheetPresented ? 0.32 : 1)
+            }
 
             primaryCommandBar(compact: compact)
                 .opacity(isAnySheetPresented ? 0.22 : 1)
                 .allowsHitTesting(!isAnySheetPresented)
 
-            if !isAnySheetPresented {
+            if !isAnySheetPresented && !condensed {
                 secondaryCommandRow(compact: compact)
             }
         }
-        .padding(compact ? 10 : 12)
-        .background(.black.opacity(0.64))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.16), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(condensed ? 8 : (compact ? 10 : 12))
+        .background(.black.opacity(condensed ? 0.52 : 0.64))
+        .overlay(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous).stroke(Color.white.opacity(0.16), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous))
         .accessibilityElement(children: .contain)
     }
 
@@ -777,6 +895,7 @@ private struct PhoneMetrics {
     let safeArea: EdgeInsets
 
     var isCompactPhone: Bool { size.height < 720 || size.width < 380 }
+    var needsCollapsedChrome: Bool { size.height < 820 || size.width < 390 }
     var horizontalPadding: CGFloat { isCompactPhone ? 8 : 10 }
     var verticalSpacing: CGFloat { isCompactPhone ? 6 : 8 }
     var scenePeekHeight: CGFloat { isCompactPhone ? 20 : 34 }
