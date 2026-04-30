@@ -316,13 +316,10 @@ struct GameView: View {
 
     private func roomChoiceDeck(compact: Bool, condensed: Bool) -> some View {
         VStack(spacing: condensed ? 6 : (compact ? 8 : 10)) {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: condensed ? 6 : 8) {
-                ForEach(gameViewModel.availableRooms) { room in
-                    roomCard(room, compact: compact)
-                }
-            }
+            selectedRoomSummaryCard(compact: compact)
 
-            roomSelectionConfirmation(compact: compact)
+            roomSelectionStrip(compact: compact)
+
             beginNightButton(compact: compact)
         }
         .padding(condensed ? 8 : (compact ? 10 : 12))
@@ -331,74 +328,116 @@ struct GameView: View {
         .clipShape(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous))
     }
 
-    private func roomCard(_ room: DormRoom, compact: Bool) -> some View {
+    private func selectedRoomSummaryCard(compact: Bool) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("当前选择")
+                        .font(.caption2.bold())
+                        .foregroundColor(.yellow.opacity(0.86))
+                    Text(gameViewModel.selectedRoom.name)
+                        .font(compact ? .caption.bold() : .subheadline.bold())
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
+                Spacer(minLength: 8)
+                Text(roomTag(for: gameViewModel.selectedRoom))
+                    .font(.caption2.bold())
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.yellow.opacity(0.92))
+                    .clipShape(Capsule())
+            }
+
+            HStack(spacing: compact ? 6 : 8) {
+                roomSummaryPill(title: "风险", value: "\(gameViewModel.selectedRoom.risk)级", tint: roomRiskColor(for: gameViewModel.selectedRoom))
+                roomSummaryPill(title: "金币", value: roomRewardText(for: gameViewModel.selectedRoom), tint: .green)
+                roomSummaryPill(title: "门耐久", value: roomDoorHealthText(for: gameViewModel.selectedRoom), tint: .cyan)
+            }
+
+            Text("在地图上确认位置，下方切换房间；确认后进入夜晚防守。")
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.70))
+                .lineLimit(compact ? 2 : 1)
+                .minimumScaleFactor(0.82)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, compact ? 10 : 12)
+        .padding(.vertical, compact ? 9 : 11)
+        .background(Color.white.opacity(0.10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.yellow.opacity(0.42), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func roomSelectionStrip(compact: Bool) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: compact ? 6 : 8) {
+                ForEach(gameViewModel.availableRooms) { room in
+                    roomChoicePill(room, compact: compact)
+                }
+            }
+            .padding(.horizontal, 1)
+        }
+        .accessibilityLabel("切换候选宿舍")
+    }
+
+    private func roomChoicePill(_ room: DormRoom, compact: Bool) -> some View {
         let isSelected = room.id == gameViewModel.selectedRoom.id
 
         return Button(action: { gameViewModel.chooseRoom(room) }) {
-            VStack(alignment: .leading, spacing: compact ? 7 : 8) {
-                HStack(alignment: .top, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.caption2.bold())
+                VStack(alignment: .leading, spacing: 1) {
                     Text(room.name)
-                        .font(compact ? .caption.bold() : .subheadline.bold())
+                        .font(.caption.bold())
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
-                    Spacer(minLength: 0)
-                    Text(isSelected ? "已选" : "可选")
+                    Text(isSelected ? "已选择 ✓" : "选择")
                         .font(.caption2.bold())
-                        .foregroundColor(isSelected ? .black : .yellow)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(isSelected ? Color.white.opacity(0.92) : Color.yellow.opacity(0.14))
-                        .clipShape(Capsule())
+                        .foregroundColor(isSelected ? .black.opacity(0.78) : .yellow.opacity(0.82))
                 }
-
-                roomCardMetricRow(title: "标签", value: roomTag(for: room), valueColor: isSelected ? .black.opacity(0.88) : .white.opacity(0.90))
-                roomCardMetricRow(title: "风险", value: "\(room.risk) 级", valueColor: roomRiskColor(for: room))
-                roomCardMetricRow(title: "金币产出", value: roomRewardText(for: room), valueColor: isSelected ? .black.opacity(0.88) : .green)
-                roomCardMetricRow(title: "初始门耐久", value: roomDoorHealthText(for: room), valueColor: isSelected ? .black.opacity(0.88) : .cyan)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(compact ? 10 : 12)
             .foregroundColor(isSelected ? .black : .white)
+            .padding(.horizontal, compact ? 9 : 10)
+            .padding(.vertical, compact ? 7 : 8)
             .background(isSelected ? Color.yellow : Color.white.opacity(0.10))
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(isSelected ? Color.yellow.opacity(0.95) : Color.white.opacity(0.12), lineWidth: isSelected ? 1.5 : 1)
+                Capsule()
+                    .stroke(isSelected ? Color.yellow.opacity(0.95) : Color.white.opacity(0.14), lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(isSelected ? "已选择" : "选择")\(room.name)")
     }
 
-    private func roomSelectionConfirmation(compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("入住确认")
-                .font(.caption.bold())
-                .foregroundColor(.white.opacity(0.72))
-            Text("已选择：\(gameViewModel.selectedRoom.name)")
-                .font(compact ? .caption.bold() : .subheadline.bold())
-                .foregroundColor(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text("\(roomTag(for: gameViewModel.selectedRoom)) · \(roomRewardText(for: gameViewModel.selectedRoom)) · \(roomDoorHealthText(for: gameViewModel.selectedRoom))")
+    private func roomSummaryPill(title: String, value: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
                 .font(.caption2)
-                .foregroundColor(.white.opacity(0.76))
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+                .foregroundColor(.white.opacity(0.64))
+            Text(value)
+                .font(.caption.bold())
+                .foregroundColor(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, compact ? 8 : 10)
-        .background(Color.green.opacity(0.12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.green.opacity(0.42), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(tint.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func beginNightButton(compact: Bool) -> some View {
         Button(action: { gameViewModel.beginNightDefense() }) {
-            commandButtonContent(title: "入住并开始夜晚", subtitle: "角色固定 · 开始睡觉发育", systemImage: "moon.stars.fill", compact: compact)
+            commandButtonContent(title: "确认入住并开始夜晚", subtitle: "确认后角色固定，无法自由移动", systemImage: "moon.stars.fill", compact: compact)
         }
         .buttonStyle(CommandButtonStyle(tint: .green, compact: compact))
     }
