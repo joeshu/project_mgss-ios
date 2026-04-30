@@ -1,6 +1,21 @@
 import SwiftUI
 import SpriteKit
 
+private enum MGSSUITheme {
+    static let nightBase = Color(red: 0.035, green: 0.035, blue: 0.060)
+    static let nightPanelTop = Color(red: 0.055, green: 0.052, blue: 0.082)
+    static let nightPanelBottom = Color(red: 0.080, green: 0.065, blue: 0.105)
+    static let roomPanelTop = Color(red: 0.045, green: 0.045, blue: 0.070)
+    static let roomPanelBottom = Color(red: 0.070, green: 0.060, blue: 0.085)
+    static let cardFill = Color(red: 0.080, green: 0.075, blue: 0.100)
+    static let chipFill = Color(red: 0.110, green: 0.105, blue: 0.130)
+    static let selection = Color.yellow
+    static let action = Color.green
+    static let utility = Color.cyan
+    static let warning = Color.orange
+    static let danger = Color.red
+}
+
 struct GameView: View {
     @StateObject private var gameViewModel = GameViewModel()
     @State private var isShopPresented = false
@@ -16,7 +31,7 @@ struct GameView: View {
             NavigationStack {
                 ZStack {
                     LinearGradient(
-                        colors: [Color(red: 0.03, green: 0.03, blue: 0.09), Color(red: 0.10, green: 0.05, blue: 0.15)],
+                        colors: [MGSSUITheme.nightBase, Color(red: 0.10, green: 0.05, blue: 0.15)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -199,7 +214,7 @@ struct GameView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(subtle ? Color(red: 0.03, green: 0.035, blue: 0.055) : .black.opacity(0.72))
+            .background(subtle ? MGSSUITheme.nightBase : .black.opacity(0.72))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(tint.opacity(subtle ? 0.28 : 0.55), lineWidth: 1)
@@ -227,8 +242,8 @@ struct GameView: View {
             }
 
             HStack(spacing: 8) {
-                choosingRoomBadge(title: "候选房间", value: "\(gameViewModel.availableRooms.count)", tint: .yellow)
-                choosingRoomBadge(title: "当前房间", value: gameViewModel.selectedRoom.name, tint: .cyan)
+                choosingRoomBadge(title: "候选房间", value: "\(gameViewModel.availableRooms.count)", tint: MGSSUITheme.selection)
+                choosingRoomBadge(title: "当前房间", value: gameViewModel.selectedRoom.name, tint: MGSSUITheme.utility)
             }
         }
         .padding(.horizontal, metrics.horizontalPadding)
@@ -257,11 +272,19 @@ struct GameView: View {
             .padding(.bottom, collapsedChrome ? 4 : max(8, metrics.safeArea.bottom + 8))
     }
 
+    private var nightPanelBackground: LinearGradient {
+        LinearGradient(
+            colors: [MGSSUITheme.nightPanelTop.opacity(0.92), MGSSUITheme.nightPanelBottom.opacity(0.96)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     private var roomSelectionPanelBackground: LinearGradient {
         LinearGradient(
             colors: [
-                Color(red: 0.045, green: 0.045, blue: 0.070),
-                Color(red: 0.070, green: 0.060, blue: 0.085)
+                MGSSUITheme.roomPanelTop,
+                MGSSUITheme.roomPanelBottom
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -277,7 +300,7 @@ struct GameView: View {
             }
         }
         .padding(condensed ? 8 : (compact ? 10 : 12))
-        .background(.black.opacity(condensed ? 0.40 : 0.52))
+        .background(nightPanelBackground)
         .overlay(RoundedRectangle(cornerRadius: condensed ? 14 : 16, style: .continuous).stroke(phaseTint.opacity(0.62), lineWidth: 1.2))
         .clipShape(RoundedRectangle(cornerRadius: condensed ? 14 : 16, style: .continuous))
         .shadow(color: phaseTint.opacity(0.22), radius: condensed ? 8 : 12)
@@ -301,7 +324,7 @@ struct GameView: View {
             VStack(alignment: .trailing, spacing: 3) {
                 Text(gameViewModel.phase == .choosingRoom ? "选房准备" : "距天亮 \(max(0, 180 - gameViewModel.gameTime))s")
                     .font(compact ? .caption.bold() : .subheadline.bold())
-                    .foregroundColor(.yellow)
+                    .foregroundColor(MGSSUITheme.selection)
                 Text(threatLabel)
                     .font(.caption2.bold())
                     .foregroundColor(threatColor)
@@ -332,7 +355,7 @@ struct GameView: View {
             HStack(spacing: 8) {
                 Image(systemName: "bed.double.fill")
                     .font(.caption.bold())
-                    .foregroundColor(.yellow)
+                    .foregroundColor(MGSSUITheme.selection)
                 Text("选房操作区")
                     .font(.caption.bold())
                     .foregroundColor(.white.opacity(0.88))
@@ -352,7 +375,7 @@ struct GameView: View {
         .background(roomSelectionPanelBackground)
         .overlay(
             RoundedRectangle(cornerRadius: condensed ? 18 : 20, style: .continuous)
-                .stroke(Color.yellow.opacity(0.70), lineWidth: 1.1)
+                .stroke(MGSSUITheme.selection.opacity(0.70), lineWidth: 1.1)
         )
         .clipShape(RoundedRectangle(cornerRadius: condensed ? 18 : 20, style: .continuous))
         .shadow(color: Color.black.opacity(0.46), radius: 18, x: 0, y: -6)
@@ -364,7 +387,7 @@ struct GameView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("当前选择")
                         .font(.caption2.bold())
-                        .foregroundColor(.yellow.opacity(0.86))
+                        .foregroundColor(MGSSUITheme.selection.opacity(0.86))
                     Text(gameViewModel.selectedRoom.name)
                         .font(compact ? .caption.bold() : .subheadline.bold())
                         .foregroundColor(.white)
@@ -377,7 +400,7 @@ struct GameView: View {
                     .foregroundColor(.black)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.yellow)
+                    .background(MGSSUITheme.selection)
                     .clipShape(Capsule())
             }
 
@@ -396,10 +419,10 @@ struct GameView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, compact ? 10 : 12)
         .padding(.vertical, compact ? 9 : 11)
-        .background(Color(red: 0.08, green: 0.075, blue: 0.10))
+        .background(MGSSUITheme.cardFill)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.yellow.opacity(0.42), lineWidth: 1)
+                .stroke(MGSSUITheme.selection.opacity(0.42), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
@@ -436,10 +459,10 @@ struct GameView: View {
             .foregroundColor(isSelected ? .black : .white)
             .padding(.horizontal, compact ? 9 : 10)
             .padding(.vertical, compact ? 7 : 8)
-            .background(isSelected ? Color.yellow : Color(red: 0.11, green: 0.105, blue: 0.13))
+            .background(isSelected ? MGSSUITheme.selection : MGSSUITheme.chipFill)
             .overlay(
                 Capsule()
-                    .stroke(isSelected ? Color.yellow.opacity(0.95) : Color.white.opacity(0.14), lineWidth: 1)
+                    .stroke(isSelected ? MGSSUITheme.selection.opacity(0.95) : Color.white.opacity(0.14), lineWidth: 1)
             )
             .clipShape(Capsule())
         }
@@ -461,7 +484,7 @@ struct GameView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(Color(red: 0.11, green: 0.105, blue: 0.13))
+        .background(MGSSUITheme.chipFill)
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(tint.opacity(0.32), lineWidth: 1)
@@ -473,7 +496,7 @@ struct GameView: View {
         Button(action: { gameViewModel.beginNightDefense() }) {
             commandButtonContent(title: "确认入住并开始夜晚", subtitle: "确认后角色固定，无法自由移动", systemImage: "moon.stars.fill", compact: compact)
         }
-        .buttonStyle(CommandButtonStyle(tint: .green, compact: compact))
+        .buttonStyle(CommandButtonStyle(tint: MGSSUITheme.action, compact: compact))
     }
 
     private func quickStatusRow(compact: Bool) -> some View {
@@ -511,7 +534,7 @@ struct GameView: View {
             }
         }
         .padding(condensed ? 8 : (compact ? 10 : 12))
-        .background(.black.opacity(condensed ? 0.52 : 0.64))
+        .background(nightPanelBackground)
         .overlay(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous).stroke(Color.white.opacity(0.16), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous))
         .accessibilityElement(children: .contain)

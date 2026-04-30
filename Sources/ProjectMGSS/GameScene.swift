@@ -1,6 +1,19 @@
 import Foundation
 import SpriteKit
 
+private enum MGSSScenePalette {
+    static let boardFill = SKColor(red: 0.055, green: 0.050, blue: 0.105, alpha: 0.98)
+    static let boardStroke = SKColor(red: 0.48, green: 0.34, blue: 0.78, alpha: 0.88)
+    static let corridorFill = SKColor(red: 0.105, green: 0.090, blue: 0.175, alpha: 1.0)
+    static let corridorStroke = SKColor(red: 0.34, green: 0.28, blue: 0.50, alpha: 1.0)
+    static let roomFill = SKColor(red: 0.095, green: 0.088, blue: 0.155, alpha: 0.94)
+    static let selectedRoomFill = SKColor(red: 0.235, green: 0.175, blue: 0.118, alpha: 1.0)
+    static let selected = SKColor(red: 0.98, green: 0.78, blue: 0.34, alpha: 0.98)
+    static let utility = SKColor(red: 0.45, green: 0.92, blue: 1.0, alpha: 1.0)
+    static let danger = SKColor(red: 0.94, green: 0.10, blue: 0.14, alpha: 1.0)
+    static let safe = SKColor(red: 0.45, green: 1.0, blue: 0.62, alpha: 1.0)
+}
+
 final class GameScene: SKScene {
     var gameState: GameState {
         didSet { renderScene() }
@@ -49,19 +62,20 @@ final class GameScene: SKScene {
 
         let playRect = boardRect()
         let outer = SKShapeNode(rect: playRect, cornerRadius: 20)
-        outer.fillColor = SKColor(red: 0.07, green: 0.06, blue: 0.13, alpha: 0.96)
-        outer.strokeColor = SKColor(red: 0.47, green: 0.31, blue: 0.76, alpha: 0.85)
+        outer.fillColor = MGSSScenePalette.boardFill
+        outer.strokeColor = MGSSScenePalette.boardStroke
         outer.lineWidth = 3
         addChild(outer)
 
         let corridor = SKShapeNode(rect: CGRect(x: playRect.midX - 46, y: playRect.minY + 34, width: 92, height: playRect.height - 72), cornerRadius: 14)
-        corridor.fillColor = SKColor(red: 0.11, green: 0.09, blue: 0.18, alpha: 1.0)
-        corridor.strokeColor = SKColor(red: 0.30, green: 0.24, blue: 0.44, alpha: 1.0)
+        corridor.fillColor = MGSSScenePalette.corridorFill
+        corridor.strokeColor = MGSSScenePalette.corridorStroke
         corridor.lineWidth = 2
         addChild(corridor)
 
         addRoomGrid(in: playRect)
         addCorridorTiles(in: playRect)
+        addCorridorCenterGuide(in: playRect)
         addBuildSlotHints(in: playRect)
 
         doorNode.strokeColor = .white
@@ -73,7 +87,7 @@ final class GameScene: SKScene {
         addChild(bedNode)
 
         auraNode.fillColor = SKColor(red: 0.18, green: 0.75, blue: 1.0, alpha: 0.10)
-        auraNode.strokeColor = SKColor(red: 0.42, green: 0.86, blue: 1.0, alpha: 0.45)
+        auraNode.strokeColor = MGSSScenePalette.utility.withAlphaComponent(0.45)
         auraNode.lineWidth = 2
         addChild(auraNode)
 
@@ -88,7 +102,7 @@ final class GameScene: SKScene {
         addChild(ghostNode)
 
         ghostPressureRing.fillColor = .clear
-        ghostPressureRing.strokeColor = SKColor(red: 1.0, green: 0.14, blue: 0.18, alpha: 0.62)
+        ghostPressureRing.strokeColor = MGSSScenePalette.danger.withAlphaComponent(0.62)
         ghostPressureRing.lineWidth = 3
         ghostPressureRing.glowWidth = 8
         addChild(ghostPressureRing)
@@ -115,13 +129,13 @@ final class GameScene: SKScene {
             let roomRect = dormRoomRect(for: room)
             let isSelected = room.id == gameState.selectedRoom.id
             let cell = SKShapeNode(rect: roomRect, cornerRadius: 14)
-            cell.fillColor = isSelected ? SKColor(red: 0.23, green: 0.17, blue: 0.13, alpha: 1.0) : SKColor(red: 0.10, green: 0.09, blue: 0.16, alpha: 0.86)
-            cell.strokeColor = isSelected ? SKColor(red: 0.98, green: 0.78, blue: 0.34, alpha: 0.95) : SKColor(red: 0.22, green: 0.18, blue: 0.34, alpha: 0.8)
+            cell.fillColor = isSelected ? MGSSScenePalette.selectedRoomFill : MGSSScenePalette.roomFill
+            cell.strokeColor = isSelected ? MGSSScenePalette.selected : SKColor(red: 0.22, green: 0.18, blue: 0.34, alpha: 0.8)
             cell.lineWidth = isSelected ? 3 : 1.2
             addChild(cell)
             dynamicBaseNodes.append(cell)
 
-            let title = makeLabel(room.name, size: 11, color: isSelected ? SKColor(red: 1.0, green: 0.84, blue: 0.42, alpha: 1.0) : SKColor.white.withAlphaComponent(0.56))
+            let title = makeLabel(room.name, size: 11, color: isSelected ? MGSSScenePalette.selected : SKColor.white.withAlphaComponent(0.56))
             title.position = CGPoint(x: roomRect.midX, y: roomRect.maxY - 18)
             addChild(title)
             dynamicBaseNodes.append(title)
@@ -142,18 +156,29 @@ final class GameScene: SKScene {
         }
     }
 
+    private func addCorridorCenterGuide(in rect: CGRect) {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY + 48))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY - 48))
+        let guide = SKShapeNode(path: path)
+        guide.strokeColor = MGSSScenePalette.utility.withAlphaComponent(0.16)
+        guide.lineWidth = 1
+        addChild(guide)
+        dynamicBaseNodes.append(guide)
+    }
+
     private func addBuildSlotHints(in rect: CGRect) {
         let selectedSlots = gameState.selectedRoom.turretSlots
         for slot in selectedSlots.prefix(3) {
             let marker = SKShapeNode(circleOfRadius: 12)
             marker.fillColor = SKColor(red: 0.10, green: 0.22, blue: 0.26, alpha: 0.72)
-            marker.strokeColor = SKColor(red: 0.38, green: 0.92, blue: 1.0, alpha: 0.70)
+            marker.strokeColor = MGSSScenePalette.utility.withAlphaComponent(0.70)
             marker.lineWidth = 1.5
             marker.position = mapPosition(slot)
             addChild(marker)
             dynamicBaseNodes.append(marker)
 
-            let plus = makeLabel("+", size: 16, color: SKColor(red: 0.58, green: 0.96, blue: 1.0, alpha: 0.92))
+            let plus = makeLabel("+", size: 16, color: MGSSScenePalette.utility.withAlphaComponent(0.92))
             plus.position = CGPoint(x: marker.position.x, y: marker.position.y - 1)
             addChild(plus)
             dynamicBaseNodes.append(plus)
@@ -276,7 +301,7 @@ final class GameScene: SKScene {
         auraNode.position = playerNode.position
         auraNode.isHidden = !gameState.player.isSleeping || gameState.phase == .choosingRoom
         ghostNode.position = mapPosition(gameState.ghost.position)
-        ghostNode.fillColor = gameState.ghost.isFrozen ? .cyan : SKColor(red: 0.88, green: 0.07, blue: 0.12, alpha: 1.0)
+        ghostNode.fillColor = gameState.ghost.isFrozen ? .cyan : MGSSScenePalette.danger
         ghostNode.setScale(gameState.ghost.state == .enraged ? 1.25 : (isBreakingDoor ? 1.12 : 1.0))
         ghostPressureRing.position = ghostNode.position
         ghostPressureRing.isHidden = gameState.ghost.isFrozen || gameState.phase == .choosingRoom
@@ -331,7 +356,7 @@ final class GameScene: SKScene {
         path.move(to: from)
         path.addLine(to: to)
         let laser = SKShapeNode(path: path)
-        laser.strokeColor = SKColor(red: 0.34, green: 0.95, blue: 1.0, alpha: 0.82)
+        laser.strokeColor = MGSSScenePalette.utility.withAlphaComponent(0.82)
         laser.lineWidth = 3
         laser.glowWidth = 5
         addChild(laser)
@@ -357,7 +382,7 @@ final class GameScene: SKScene {
         }
 
         if gameState.phase == .choosingRoom || gameState.gameStatus != .playing {
-            addCallout(text: statusText, at: CGPoint(x: size.width / 2, y: boardRect().maxY - 24), tint: SKColor(red: 0.98, green: 0.78, blue: 0.34, alpha: 1.0))
+            addCallout(text: statusText, at: CGPoint(x: size.width / 2, y: boardRect().maxY - 24), tint: MGSSScenePalette.selected)
         }
 
         let ghostIcon = makeLabel(gameState.ghost.isFrozen ? "🧊" : ghostSymbol(), size: 24, color: .white)
@@ -419,8 +444,8 @@ final class GameScene: SKScene {
 
     private func doorTipColor() -> SKColor {
         if isBreakingDoor { return SKColor(red: 1.0, green: 0.30, blue: 0.22, alpha: 1.0) }
-        if gameState.turrets.isEmpty { return SKColor(red: 0.56, green: 0.95, blue: 1.0, alpha: 1.0) }
-        return SKColor(red: 0.56, green: 1.0, blue: 0.62, alpha: 1.0)
+        if gameState.turrets.isEmpty { return MGSSScenePalette.utility }
+        return MGSSScenePalette.safe
     }
 
     private func makePickupNode(for item: Item) -> SKNode {
