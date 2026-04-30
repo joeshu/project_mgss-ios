@@ -91,11 +91,12 @@ jobs:
           )
 
           def curl_json(method, url, data=None, extra_headers=None, binary_file=None):
+              auth_header = 'Authorization: Bearer ' + token
               cmd = [
                   'curl', '-fsS', '-X', method,
                   '-H', 'Accept: application/vnd.github+json',
                   '-H', 'X-GitHub-Api-Version: 2022-11-28',
-                  '-H', f'Authorization: Bearer {token}',
+                  '-H', auth_header,
               ]
               if extra_headers:
                   for h in extra_headers:
@@ -111,10 +112,11 @@ jobs:
               return json.loads(p.stdout or '{}')
 
           base = f'https://api.github.com/repos/{repo}'
+          auth_header = 'Authorization: Bearer ' + token
           check = subprocess.run([
               'curl', '-sS', '-o', '/tmp/release_check.json', '-w', '%{http_code}',
               '-H', 'Accept: application/vnd.github+json',
-              '-H', f'Authorization: Bearer {token}',
+              '-H', auth_header,
               f'{base}/releases/tags/{tag}'
           ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
           if check.returncode:
@@ -142,7 +144,7 @@ jobs:
               if asset.get('name') == asset_name:
                   subprocess.run([
                       'curl', '-fsS', '-X', 'DELETE',
-                      '-H', f'Authorization: Bearer {token}',
+                      '-H', auth_header,
                       '-H', 'Accept: application/vnd.github+json',
                       f'{base}/releases/assets/{asset["id"]}'
                   ], check=True)
