@@ -11,6 +11,7 @@ private enum MGSSScenePalette {
     static let selected = SKColor(red: 0.98, green: 0.78, blue: 0.34, alpha: 0.98)
     static let utility = SKColor(red: 0.45, green: 0.92, blue: 1.0, alpha: 1.0)
     static let danger = SKColor(red: 0.94, green: 0.10, blue: 0.14, alpha: 1.0)
+    static let warning = SKColor(red: 1.0, green: 0.62, blue: 0.18, alpha: 1.0)
     static let safe = SKColor(red: 0.45, green: 1.0, blue: 0.62, alpha: 1.0)
 }
 
@@ -30,7 +31,7 @@ final class GameScene: SKScene {
     private var ghostPressureRing = SKShapeNode(circleOfRadius: 34)
     private var turretNodes: [SKNode] = []
     private var itemNodes: [SKNode] = []
-    private var labelNodes: [SKLabelNode] = []
+    private var labelNodes: [SKNode] = []
     private var dynamicBaseNodes: [SKNode] = []
     private var lastTickTime: TimeInterval = 0
 
@@ -74,9 +75,9 @@ final class GameScene: SKScene {
         addChild(corridor)
 
         addRoomGrid(in: playRect)
-        addCorridorTiles(in: playRect)
-        addCorridorCenterGuide(in: playRect)
-        addBuildSlotHints(in: playRect)
+        if gameState.phase == .nightDefense {
+            addBuildSlotHints(in: playRect)
+        }
 
         doorNode.strokeColor = .white
         doorNode.lineWidth = 2
@@ -168,20 +169,25 @@ final class GameScene: SKScene {
     }
 
     private func addBuildSlotHints(in rect: CGRect) {
+        let occupied = Set(gameState.turrets.map { "\($0.position.x)-\($0.position.y)" })
         let selectedSlots = gameState.selectedRoom.turretSlots
         for slot in selectedSlots.prefix(3) {
-            let marker = SKShapeNode(circleOfRadius: 12)
-            marker.fillColor = SKColor(red: 0.10, green: 0.22, blue: 0.26, alpha: 0.72)
-            marker.strokeColor = MGSSScenePalette.utility.withAlphaComponent(0.70)
-            marker.lineWidth = 1.5
+            let key = "\(slot.x)-\(slot.y)"
+            let isOccupied = occupied.contains(key)
+            let marker = SKShapeNode(rectOf: CGSize(width: 46, height: 22), cornerRadius: 7)
+            marker.fillColor = isOccupied ? MGSSScenePalette.safe.withAlphaComponent(0.24) : SKColor(red: 0.06, green: 0.13, blue: 0.16, alpha: 0.58)
+            marker.strokeColor = (isOccupied ? MGSSScenePalette.safe : MGSSScenePalette.utility).withAlphaComponent(0.58)
+            marker.lineWidth = 1
             marker.position = mapPosition(slot)
+            marker.zPosition = 4
             addChild(marker)
             dynamicBaseNodes.append(marker)
 
-            let plus = makeLabel("+", size: 16, color: MGSSScenePalette.utility.withAlphaComponent(0.92))
-            plus.position = CGPoint(x: marker.position.x, y: marker.position.y - 1)
-            addChild(plus)
-            dynamicBaseNodes.append(plus)
+            let label = makeLabel(isOccupied ? "已建炮台" : "炮台位", size: 8, color: (isOccupied ? MGSSScenePalette.safe : MGSSScenePalette.utility).withAlphaComponent(0.88))
+            label.position = CGPoint(x: marker.position.x, y: marker.position.y - 1)
+            label.zPosition = 5
+            addChild(label)
+            dynamicBaseNodes.append(label)
         }
     }
 
@@ -302,11 +308,12 @@ final class GameScene: SKScene {
         auraNode.isHidden = !gameState.player.isSleeping || gameState.phase == .choosingRoom
         ghostNode.position = mapPosition(gameState.ghost.position)
         ghostNode.fillColor = gameState.ghost.isFrozen ? .cyan : MGSSScenePalette.danger
-        ghostNode.setScale(gameState.ghost.state == .enraged ? 1.25 : (isBreakingDoor ? 1.12 : 1.0))
+        ghostNode.isHidden = gameState.phase == .choosingRoom
+        ghostNode.setScale(gameState.ghost.state == .enraged ? 1.18 : (isBreakingDoor ? 1.08 : 1.0))
         ghostPressureRing.position = ghostNode.position
-        ghostPressureRing.isHidden = gameState.ghost.isFrozen || gameState.phase == .choosingRoom
-        ghostPressureRing.setScale(isBreakingDoor ? 1.35 : 1.0)
-        ghostPressureRing.alpha = isBreakingDoor ? 0.88 : 0.45
+        ghostPressureRing.isHidden = gameState.ghost.isFrozen || gameState.phase == .choosingRoom || !isBreakingDoor
+        ghostPressureRing.setScale(isBreakingDoor ? 1.24 : 1.0)
+        ghostPressureRing.alpha = isBreakingDoor ? 0.72 : 0.0
         doorNode.position = mapPosition(gameState.selectedRoom.doorPosition)
         doorNode.fillColor = doorColor()
         doorNode.setScale(isBreakingDoor ? 1.05 : 1.0)
@@ -385,47 +392,64 @@ final class GameScene: SKScene {
             addCallout(text: statusText, at: CGPoint(x: size.width / 2, y: boardRect().maxY - 24), tint: MGSSScenePalette.selected)
         }
 
-        let ghostIcon = makeLabel(gameState.ghost.isFrozen ? "🧊" : ghostSymbol(), size: 24, color: .white)
-        ghostIcon.position = CGPoint(x: ghostNode.position.x, y: ghostNode.position.y + 30)
-        addChild(ghostIcon)
-        labelNodes.append(ghostIcon)
+        addTinyLabel("床", at: CGPoint(x: bedNode.position.x, y: bedNode.position.y), tint: MGSSScenePalette.utility)
+        addTinyLabel("门", at: CGPoint(x: doorNode.position.x, y: doorNode.position.y), tint: doorTipColor())
 
-        let sleepIcon = makeLabel(gameState.player.isSleeping ? "💤" : "🧑‍🎓", size: 20, color: .white)
-        sleepIcon.position = CGPoint(x: playerNode.position.x, y: playerNode.position.y + 25)
-        addChild(sleepIcon)
-        labelNodes.append(sleepIcon)
+        if gameState.phase == .nightDefense {
+            addCallout(
+                text: gameState.ghost.isFrozen ? "猛鬼冻结" : ghostStatusText(),
+                at: CGPoint(x: ghostNode.position.x, y: ghostNode.position.y + 32),
+                tint: gameState.ghost.isFrozen ? MGSSScenePalette.utility : MGSSScenePalette.danger
+            )
 
-        let tipOffset: CGFloat = gameState.selectedRoom.id == DormRoom.leftUpper.id || gameState.selectedRoom.id == DormRoom.leftLower.id ? 56 : -56
-        addCallout(
-            text: doorTipText(),
-            at: CGPoint(x: doorNode.position.x + tipOffset, y: doorNode.position.y + 30),
-            tint: doorTipColor()
-        )
+            let playerText = gameState.player.isSleeping ? "玩家睡觉" : "玩家醒着"
+            addCallout(
+                text: playerText,
+                at: CGPoint(x: playerNode.position.x, y: playerNode.position.y + 32),
+                tint: MGSSScenePalette.utility
+            )
+
+            let tipOffset: CGFloat = gameState.selectedRoom.id == DormRoom.leftUpper.id || gameState.selectedRoom.id == DormRoom.leftLower.id ? 52 : -52
+            addCallout(
+                text: doorTipText(),
+                at: CGPoint(x: doorNode.position.x + tipOffset, y: doorNode.position.y + 28),
+                tint: doorTipColor()
+            )
+        }
     }
 
     private func addCallout(text: String, at position: CGPoint, tint: SKColor) {
-        let width = min(size.width - 38, max(74, CGFloat(text.count) * 8.4 + 18))
-        let bubble = SKShapeNode(rectOf: CGSize(width: width, height: 24), cornerRadius: 8)
+        let width = min(size.width - 38, max(54, CGFloat(text.count) * 8.2 + 16))
+        let bubble = SKShapeNode(rectOf: CGSize(width: width, height: 22), cornerRadius: 8)
         bubble.position = position
         bubble.fillColor = SKColor.black.withAlphaComponent(0.68)
         bubble.strokeColor = tint.withAlphaComponent(0.82)
         bubble.lineWidth = 1.2
         bubble.zPosition = 20
         addChild(bubble)
+        labelNodes.append(bubble)
 
-        let label = makeLabel(text, size: 11, color: tint)
+        let label = makeLabel(text, size: 10, color: tint)
         label.position = CGPoint(x: position.x, y: position.y - 1)
         label.zPosition = 21
         addChild(label)
         labelNodes.append(label)
     }
 
-    private func ghostSymbol() -> String {
+    private func addTinyLabel(_ text: String, at position: CGPoint, tint: SKColor) {
+        let label = makeLabel(text, size: 9, color: tint)
+        label.position = CGPoint(x: position.x, y: position.y - 1)
+        label.zPosition = 22
+        addChild(label)
+        labelNodes.append(label)
+    }
+
+    private func ghostStatusText() -> String {
         switch gameState.ghost.state {
-        case .scouting: return "👁"
-        case .approaching: return "👹"
-        case .attacking: return "💢"
-        case .enraged: return "🔥"
+        case .scouting: return "猛鬼巡查"
+        case .approaching: return "猛鬼接近"
+        case .attacking: return "猛鬼破门"
+        case .enraged: return "猛鬼狂暴"
         }
     }
 
@@ -436,10 +460,10 @@ final class GameScene: SKScene {
     }
 
     private func doorTipText() -> String {
-        if gameState.phase == .choosingRoom { return "等待入住" }
-        if isBreakingDoor { return "门口交战" }
-        if gameState.turrets.isEmpty { return "建造炮台 +" }
-        return "火力覆盖中"
+        if gameState.phase == .choosingRoom { return "待入住" }
+        if isBreakingDoor { return "门被攻击" }
+        if gameState.turrets.isEmpty { return "缺炮台" }
+        return "门口防守"
     }
 
     private func doorTipColor() -> SKColor {
@@ -450,14 +474,14 @@ final class GameScene: SKScene {
 
     private func makePickupNode(for item: Item) -> SKNode {
         let container = SKNode()
-        let circle = SKShapeNode(circleOfRadius: 13)
-        circle.fillColor = color(for: item.type)
-        circle.strokeColor = .white
-        circle.lineWidth = 2
-        container.addChild(circle)
-        let label = makeLabel(symbol(for: item.type), size: 13, color: .white)
+        let pill = SKShapeNode(rectOf: CGSize(width: 40, height: 22), cornerRadius: 8)
+        pill.fillColor = color(for: item.type).withAlphaComponent(0.88)
+        pill.strokeColor = .white.withAlphaComponent(0.82)
+        pill.lineWidth = 1.4
+        container.addChild(pill)
+        let label = makeLabel(symbol(for: item.type), size: 8.5, color: .white)
         label.verticalAlignmentMode = .center
-        label.position = CGPoint(x: 0, y: -4)
+        label.position = CGPoint(x: 0, y: -1)
         container.addChild(label)
         return container
     }
@@ -515,25 +539,25 @@ final class GameScene: SKScene {
 
     private func color(for type: Item.ItemType) -> SKColor {
         switch type {
-        case .speedUp: return .systemBlue
-        case .goldBoost: return .systemYellow
-        case .doorRepair: return .systemGreen
-        case .freezeGhost: return .cyan
-        case .invincible: return .systemPurple
-        case .barrier: return .systemOrange
-        case .slowTrap: return .magenta
+        case .speedUp: return MGSSScenePalette.utility
+        case .goldBoost: return MGSSScenePalette.selected
+        case .doorRepair: return MGSSScenePalette.safe
+        case .freezeGhost: return MGSSScenePalette.utility
+        case .invincible: return MGSSScenePalette.safe
+        case .barrier: return MGSSScenePalette.warning
+        case .slowTrap: return MGSSScenePalette.utility
         }
     }
 
     private func symbol(for type: Item.ItemType) -> String {
         switch type {
-        case .speedUp: return "↟"
-        case .goldBoost: return "$"
-        case .doorRepair: return "+"
-        case .freezeGhost: return "*"
-        case .invincible: return "◇"
-        case .barrier: return "▣"
-        case .slowTrap: return "~"
+        case .speedUp: return "加速"
+        case .goldBoost: return "金币"
+        case .doorRepair: return "修门"
+        case .freezeGhost: return "冰冻"
+        case .invincible: return "护盾"
+        case .barrier: return "屏障"
+        case .slowTrap: return "减速"
         }
     }
 }

@@ -519,9 +519,9 @@ struct GameView: View {
     }
 
     private func bottomCommandDeck(compact: Bool, condensed: Bool) -> some View {
-        VStack(spacing: condensed ? 6 : (compact ? 8 : 10)) {
+        VStack(spacing: condensed ? 6 : (compact ? 7 : 9)) {
             if !condensed {
-                quickStatusRow(compact: compact)
+                gameAreaLegend(compact: compact)
                     .opacity(isAnySheetPresented ? 0.32 : 1)
             }
 
@@ -533,11 +533,35 @@ struct GameView: View {
                 secondaryCommandRow(compact: compact)
             }
         }
-        .padding(condensed ? 8 : (compact ? 10 : 12))
+        .padding(condensed ? 8 : (compact ? 9 : 11))
         .background(nightPanelBackground)
         .overlay(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous).stroke(Color.white.opacity(0.16), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous))
         .accessibilityElement(children: .contain)
+    }
+
+    private func gameAreaLegend(compact: Bool) -> some View {
+        HStack(spacing: compact ? 5 : 7) {
+            legendChip("蓝=你/床", tint: .cyan)
+            legendChip("红=猛鬼", tint: MGSSUITheme.danger)
+            legendChip("棕=门", tint: MGSSUITheme.warning)
+            legendChip("青=炮台位", tint: MGSSUITheme.utility)
+            legendChip("黄=道具", tint: MGSSUITheme.selection)
+        }
+        .font(.caption2.bold())
+        .lineLimit(1)
+        .minimumScaleFactor(0.68)
+        .accessibilityLabel("地图图例：蓝色是玩家和床，红色是猛鬼，棕色是门，青色是炮台位，黄色是道具")
+    }
+
+    private func legendChip(_ text: String, tint: Color) -> some View {
+        Text(text)
+            .foregroundColor(.white.opacity(0.88))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(tint.opacity(0.16))
+            .overlay(Capsule().stroke(tint.opacity(0.42), lineWidth: 1))
+            .clipShape(Capsule())
     }
 
     private func primaryCommandBar(compact: Bool) -> some View {
