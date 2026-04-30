@@ -215,18 +215,13 @@ struct GameView: View {
                     Text("选择宿舍")
                         .font(compact ? .caption.bold() : .subheadline.bold())
                         .foregroundColor(.white)
-                    if !collapsedChrome {
-                        Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
-                            .font(.caption2)
-                            .foregroundColor(.white.opacity(0.76))
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.82)
-                    }
+                    Text("入住后角色固定在床边，不自由走动；靠升级门、床、炮台守到天亮。")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.76))
+                        .lineLimit(compact ? 2 : 1)
+                        .minimumScaleFactor(0.82)
                 }
                 Spacer(minLength: 8)
-                Text("选房准备")
-                    .font(.caption.bold())
-                    .foregroundColor(.yellow)
             }
 
             HStack(spacing: 8) {
@@ -321,53 +316,19 @@ struct GameView: View {
 
     private func roomChoiceDeck(compact: Bool, condensed: Bool) -> some View {
         VStack(spacing: condensed ? 6 : (compact ? 8 : 10)) {
-            if !condensed {
-                roomDiagramLocator(compact: compact)
-            }
-
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: condensed ? 6 : 8) {
                 ForEach(gameViewModel.availableRooms) { room in
                     roomCard(room, compact: compact)
                 }
             }
 
-            if !condensed {
-                roomSelectionConfirmation(compact: compact)
-            }
+            roomSelectionConfirmation(compact: compact)
             beginNightButton(compact: compact)
         }
         .padding(condensed ? 8 : (compact ? 10 : 12))
         .background(.black.opacity(condensed ? 0.54 : 0.68))
         .overlay(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous).stroke(Color.yellow.opacity(0.50), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: condensed ? 16 : 18, style: .continuous))
-    }
-
-    private func roomDiagramLocator(compact: Bool) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "map.fill")
-                .font(compact ? .caption.bold() : .subheadline.bold())
-                .foregroundColor(.cyan)
-                .frame(width: compact ? 18 : 20)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("宿舍方位参考")
-                    .font(.caption.bold())
-                    .foregroundColor(.white)
-                Text("左下最稳，右上收益最高；中间区域示意仅作定位参考。")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.72))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, compact ? 7 : 8)
-        .background(Color.white.opacity(0.06))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.cyan.opacity(0.28), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func roomCard(_ room: DormRoom, compact: Bool) -> some View {
