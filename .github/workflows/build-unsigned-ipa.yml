@@ -72,7 +72,11 @@ jobs:
             exit 1
           fi
           cat > sync_release.py <<'PY'
-          import json, os, pathlib, subprocess, urllib.parse
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import urllib.parse
 
           repo = os.environ['GITHUB_REPOSITORY']
           token = os.environ['GITHUB_TOKEN']
@@ -91,7 +95,7 @@ jobs:
                   'curl', '-fsS', '-X', method,
                   '-H', 'Accept: application/vnd.github+json',
                   '-H', 'X-GitHub-Api-Version: 2022-11-28',
-                  '-H', 'Authorization: Bearer ' + token,
+                  '-H', f'Authorization: Bearer {token}',
               ]
               if extra_headers:
                   for h in extra_headers:
@@ -110,7 +114,7 @@ jobs:
           check = subprocess.run([
               'curl', '-sS', '-o', '/tmp/release_check.json', '-w', '%{http_code}',
               '-H', 'Accept: application/vnd.github+json',
-              '-H', 'Authorization: Bearer ' + token,
+              '-H', f'Authorization: Bearer {token}',
               f'{base}/releases/tags/{tag}'
           ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
           if check.returncode:
@@ -138,7 +142,7 @@ jobs:
               if asset.get('name') == asset_name:
                   subprocess.run([
                       'curl', '-fsS', '-X', 'DELETE',
-                      '-H', 'Authorization: Bearer ' + token,
+                      '-H', f'Authorization: Bearer {token}',
                       '-H', 'Accept: application/vnd.github+json',
                       f'{base}/releases/assets/{asset["id"]}'
                   ], check=True)
