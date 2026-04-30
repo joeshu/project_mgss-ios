@@ -34,7 +34,7 @@ struct ShopView: View {
                             shopCard(
                                 icon: "🚪",
                                 title: "升级房门 Lv.\(viewModel.player.doorLevel) → Lv.\(min(viewModel.player.doorLevel + 1, 6))",
-                                subtitle: "提升最大耐久，并减少猛鬼破门伤害。",
+                                subtitle: "提升最大耐久，并减少夜影破门伤害。",
                                 price: "\(180 * (viewModel.player.doorLevel + 1)) 金币 + \(6 * max(1, viewModel.player.doorLevel)) 电力",
                                 tint: .orange,
                                 disabled: viewModel.player.doorLevel >= 6 || viewModel.playerGold < 180 * (viewModel.player.doorLevel + 1) || viewModel.playerElectricity < 6 * max(1, viewModel.player.doorLevel),

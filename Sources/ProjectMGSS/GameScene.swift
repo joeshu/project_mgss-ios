@@ -63,49 +63,21 @@ final class GameScene: SKScene {
         dynamicBaseNodes.removeAll()
 
         let playRect = boardRect()
-        let outer = SKShapeNode(rect: playRect, cornerRadius: 20)
-        outer.fillColor = MGSSScenePalette.boardFill
-        outer.strokeColor = MGSSScenePalette.boardStroke
-        outer.lineWidth = 3
-        addChild(outer)
-
-        let innerWall = SKShapeNode(rect: playRect.insetBy(dx: 8, dy: 8), cornerRadius: 16)
-        innerWall.fillColor = .clear
-        innerWall.strokeColor = SKColor(red: 0.75, green: 0.62, blue: 0.95, alpha: 0.18)
-        innerWall.lineWidth = 1.4
-        addChild(innerWall)
-        dynamicBaseNodes.append(innerWall)
-
-        let titlePlate = SKShapeNode(rectOf: CGSize(width: min(168, playRect.width - 42), height: 24), cornerRadius: 8)
-        titlePlate.position = CGPoint(x: playRect.midX, y: playRect.maxY - 20)
-        titlePlate.fillColor = SKColor.black.withAlphaComponent(0.42)
-        titlePlate.strokeColor = MGSSScenePalette.selected.withAlphaComponent(0.34)
-        titlePlate.lineWidth = 1
-        addChild(titlePlate)
-        dynamicBaseNodes.append(titlePlate)
-        let title = makeLabel("夜舍防线", size: 11, color: MGSSScenePalette.selected.withAlphaComponent(0.92))
-        title.position = CGPoint(x: playRect.midX, y: playRect.maxY - 21)
-        title.zPosition = 2
-        addChild(title)
-        dynamicBaseNodes.append(title)
-
-        let corridor = SKShapeNode(rect: CGRect(x: playRect.midX - 46, y: playRect.minY + 34, width: 92, height: playRect.height - 72), cornerRadius: 14)
-        corridor.fillColor = MGSSScenePalette.corridorFill
-        corridor.strokeColor = MGSSScenePalette.corridorStroke
-        corridor.lineWidth = 2
-        addChild(corridor)
-
+        addIsoDormBackdrop(in: playRect)
+        addIsoCorridor(in: playRect)
         addRoomGrid(in: playRect)
         if gameState.phase == .nightDefense {
             addBuildSlotHints(in: playRect)
         }
 
-        doorNode.strokeColor = .white
-        doorNode.lineWidth = 2
+        doorNode.strokeColor = MGSSScenePalette.warning.withAlphaComponent(0.65)
+        doorNode.lineWidth = 1.5
+        doorNode.alpha = 0.01
         addChild(doorNode)
 
-        bedNode.strokeColor = .white
-        bedNode.lineWidth = 2
+        bedNode.strokeColor = MGSSScenePalette.utility.withAlphaComponent(0.50)
+        bedNode.lineWidth = 1.2
+        bedNode.alpha = 0.01
         addChild(bedNode)
 
         threatPathNode.strokeColor = MGSSScenePalette.danger.withAlphaComponent(0.42)
@@ -130,7 +102,9 @@ final class GameScene: SKScene {
         ghostNode.strokeColor = SKColor(red: 1.0, green: 0.42, blue: 0.42, alpha: 1.0)
         ghostNode.lineWidth = 3
         ghostNode.glowWidth = 4
-        ghostNode.zPosition = 9
+        ghostNode.zPosition = 12
+        ghostNode.removeAllChildren()
+        addGhostFaceDetails(to: ghostNode)
         addChild(ghostNode)
 
         ghostPressureRing.fillColor = .clear
@@ -160,43 +134,7 @@ final class GameScene: SKScene {
         for room in DormRoom.allCases {
             let roomRect = dormRoomRect(for: room)
             let isSelected = room.id == gameState.selectedRoom.id
-            let cell = SKShapeNode(rect: roomRect, cornerRadius: 14)
-            cell.fillColor = isSelected ? MGSSScenePalette.selectedRoomFill : MGSSScenePalette.roomFill
-            cell.strokeColor = isSelected ? MGSSScenePalette.selected : SKColor(red: 0.22, green: 0.18, blue: 0.34, alpha: 0.8)
-            cell.lineWidth = isSelected ? 3 : 1.2
-            addChild(cell)
-            dynamicBaseNodes.append(cell)
-
-            let warmLight = SKShapeNode(rect: roomRect.insetBy(dx: 8, dy: 12), cornerRadius: 10)
-            warmLight.fillColor = (isSelected ? MGSSScenePalette.selected : SKColor(red: 0.88, green: 0.58, blue: 0.28, alpha: 1.0)).withAlphaComponent(isSelected ? 0.13 : 0.055)
-            warmLight.strokeColor = .clear
-            warmLight.zPosition = 1
-            addChild(warmLight)
-            dynamicBaseNodes.append(warmLight)
-
-            let bunk = SKShapeNode(rectOf: CGSize(width: min(48, roomRect.width * 0.40), height: 16), cornerRadius: 4)
-            bunk.position = CGPoint(x: roomRect.midX, y: roomRect.minY + 28)
-            bunk.fillColor = SKColor(red: 0.10, green: 0.42, blue: 0.70, alpha: isSelected ? 0.55 : 0.28)
-            bunk.strokeColor = MGSSScenePalette.utility.withAlphaComponent(isSelected ? 0.58 : 0.24)
-            bunk.lineWidth = 1
-            bunk.zPosition = 2
-            addChild(bunk)
-            dynamicBaseNodes.append(bunk)
-
-            let doorStrip = SKShapeNode(rectOf: CGSize(width: 34, height: 9), cornerRadius: 3)
-            let doorX = room.id == DormRoom.leftUpper.id || room.id == DormRoom.leftLower.id ? roomRect.maxX - 4 : roomRect.minX + 4
-            doorStrip.position = CGPoint(x: doorX, y: roomRect.midY)
-            doorStrip.fillColor = SKColor(red: 0.56, green: 0.31, blue: 0.13, alpha: isSelected ? 0.92 : 0.58)
-            doorStrip.strokeColor = MGSSScenePalette.warning.withAlphaComponent(isSelected ? 0.75 : 0.32)
-            doorStrip.lineWidth = 1
-            doorStrip.zPosition = 3
-            addChild(doorStrip)
-            dynamicBaseNodes.append(doorStrip)
-
-            let title = makeLabel(isSelected && gameState.phase == .nightDefense ? "已入住 · \(room.name)" : room.name, size: 10.5, color: isSelected ? MGSSScenePalette.selected : SKColor.white.withAlphaComponent(0.56))
-            title.position = CGPoint(x: roomRect.midX, y: roomRect.maxY - 18)
-            addChild(title)
-            dynamicBaseNodes.append(title)
+            addIsoDormRoom(room, roomRect: roomRect, isSelected: isSelected)
         }
     }
 
@@ -227,24 +165,26 @@ final class GameScene: SKScene {
 
     private func addBuildSlotHints(in rect: CGRect) {
         let occupied = Set(gameState.turrets.map { "\($0.position.x)-\($0.position.y)" })
-        let selectedSlots = gameState.selectedRoom.turretSlots
-        for slot in selectedSlots.prefix(3) {
+        for slot in gameState.selectedRoom.turretSlots.prefix(3) {
             let key = "\(slot.x)-\(slot.y)"
             let isOccupied = occupied.contains(key)
-            let marker = SKShapeNode(rectOf: CGSize(width: 46, height: 22), cornerRadius: 7)
-            marker.fillColor = isOccupied ? MGSSScenePalette.safe.withAlphaComponent(0.24) : SKColor(red: 0.06, green: 0.13, blue: 0.16, alpha: 0.58)
-            marker.strokeColor = (isOccupied ? MGSSScenePalette.safe : MGSSScenePalette.utility).withAlphaComponent(0.58)
-            marker.lineWidth = 1
-            marker.position = mapPosition(slot)
-            marker.zPosition = 4
-            addChild(marker)
-            dynamicBaseNodes.append(marker)
+            let base = SKShapeNode(path: isoDiamondPath(width: 44, height: 22))
+            base.position = mapPosition(slot)
+            base.fillColor = isOccupied ? MGSSScenePalette.safe.withAlphaComponent(0.26) : SKColor(red: 0.06, green: 0.12, blue: 0.14, alpha: 0.64)
+            base.strokeColor = (isOccupied ? MGSSScenePalette.safe : MGSSScenePalette.utility).withAlphaComponent(0.72)
+            base.lineWidth = 1.5
+            base.glowWidth = isOccupied ? 3 : 1
+            base.zPosition = 7
+            addChild(base)
+            dynamicBaseNodes.append(base)
 
-            let label = makeLabel(isOccupied ? "已建炮台" : "炮台位", size: 8, color: (isOccupied ? MGSSScenePalette.safe : MGSSScenePalette.utility).withAlphaComponent(0.88))
-            label.position = CGPoint(x: marker.position.x, y: marker.position.y - 1)
-            label.zPosition = 5
-            addChild(label)
-            dynamicBaseNodes.append(label)
+            if !isOccupied {
+                let bolt = makeLabel("+", size: 14, color: MGSSScenePalette.utility.withAlphaComponent(0.92))
+                bolt.position = CGPoint(x: base.position.x, y: base.position.y + 1)
+                bolt.zPosition = 8
+                addChild(bolt)
+                dynamicBaseNodes.append(bolt)
+            }
         }
     }
 
@@ -368,6 +308,7 @@ final class GameScene: SKScene {
         ghostNode.fillColor = gameState.ghost.isFrozen ? .cyan : MGSSScenePalette.danger
         ghostNode.isHidden = gameState.phase == .choosingRoom
         ghostNode.setScale(gameState.ghost.state == .enraged ? 1.18 : (isBreakingDoor ? 1.08 : 1.0))
+        ghostNode.alpha = gameState.ghost.isFrozen ? 0.72 : 1.0
         ghostPressureRing.position = ghostNode.position
         ghostPressureRing.isHidden = gameState.ghost.isFrozen || gameState.phase == .choosingRoom || !isBreakingDoor
         ghostPressureRing.setScale(isBreakingDoor ? 1.24 : 1.0)
@@ -381,31 +322,10 @@ final class GameScene: SKScene {
         turretNodes.forEach { $0.removeFromParent() }
         turretNodes.removeAll()
         for turret in gameState.turrets {
-            let turretGrowth = CGFloat(turret.level * 3)
-            let base = SKShapeNode(rectOf: CGSize(width: 27 + turretGrowth, height: 24 + turretGrowth), cornerRadius: 7)
-            base.fillColor = turret.damage > 70 ? SKColor(red: 0.24, green: 0.88, blue: 1.0, alpha: 1.0) : MGSSScenePalette.safe
-            base.strokeColor = MGSSScenePalette.utility.withAlphaComponent(0.95)
-            base.lineWidth = 2
-            base.glowWidth = 2
-            base.position = mapPosition(turret.position)
-            base.zPosition = 8
-            let barrel = SKShapeNode(rectOf: CGSize(width: 8, height: 22), cornerRadius: 3)
-            barrel.fillColor = SKColor(red: 0.12, green: 0.16, blue: 0.18, alpha: 1.0)
-            barrel.strokeColor = .white.withAlphaComponent(0.82)
-            barrel.lineWidth = 1
-            barrel.position = CGPoint(x: 0, y: 16)
-            base.addChild(barrel)
-            let cap = SKShapeNode(circleOfRadius: 5)
-            cap.fillColor = MGSSScenePalette.utility
-            cap.strokeColor = .white.withAlphaComponent(0.65)
-            cap.lineWidth = 1
-            cap.position = CGPoint(x: 0, y: 2)
-            base.addChild(cap)
-            let level = makeLabel("炮台 Lv\(turret.level)", size: 8.5, color: .white)
-            level.position = CGPoint(x: 0, y: -23)
-            base.addChild(level)
-            addChild(base)
-            turretNodes.append(base)
+            let turretNode = makeIsoTurretNode(for: turret)
+            turretNode.position = mapPosition(turret.position)
+            addChild(turretNode)
+            turretNodes.append(turretNode)
         }
 
         itemNodes.forEach { $0.removeFromParent() }
@@ -460,8 +380,10 @@ final class GameScene: SKScene {
             addCallout(text: statusText, at: CGPoint(x: size.width / 2, y: calloutY), tint: MGSSScenePalette.selected)
         }
 
-        addTinyLabel("床", at: CGPoint(x: bedNode.position.x, y: bedNode.position.y), tint: MGSSScenePalette.utility)
-        addTinyLabel("门", at: CGPoint(x: doorNode.position.x, y: doorNode.position.y), tint: doorTipColor())
+        if gameState.phase == .nightDefense {
+            addTinyLabel("床", at: CGPoint(x: bedNode.position.x, y: bedNode.position.y), tint: MGSSScenePalette.utility)
+            addTinyLabel("门", at: CGPoint(x: doorNode.position.x, y: doorNode.position.y), tint: doorTipColor())
+        }
 
         if gameState.phase == .nightDefense {
             addCallout(
@@ -552,6 +474,274 @@ final class GameScene: SKScene {
         label.position = CGPoint(x: 0, y: -1)
         container.addChild(label)
         return container
+    }
+
+    private func addIsoDormBackdrop(in rect: CGRect) {
+        let outer = SKShapeNode(rect: rect, cornerRadius: 20)
+        outer.fillColor = MGSSScenePalette.boardFill
+        outer.strokeColor = MGSSScenePalette.boardStroke
+        outer.lineWidth = 3
+        outer.zPosition = 0
+        addChild(outer)
+        dynamicBaseNodes.append(outer)
+
+        let vignette = SKShapeNode(rect: rect.insetBy(dx: 8, dy: 8), cornerRadius: 16)
+        vignette.fillColor = SKColor(red: 0.02, green: 0.018, blue: 0.045, alpha: 0.42)
+        vignette.strokeColor = SKColor(red: 0.72, green: 0.58, blue: 0.96, alpha: 0.14)
+        vignette.lineWidth = 1.2
+        vignette.zPosition = 0.4
+        addChild(vignette)
+        dynamicBaseNodes.append(vignette)
+
+        let title = makeLabel("2.5D 夜舍防线", size: 11, color: MGSSScenePalette.selected.withAlphaComponent(0.90))
+        title.position = CGPoint(x: rect.midX, y: rect.maxY - 22)
+        title.zPosition = 22
+        addChild(title)
+        dynamicBaseNodes.append(title)
+    }
+
+    private func addIsoCorridor(in rect: CGRect) {
+        let corridorWidth = min(112, rect.width * 0.30)
+        let corridorRect = CGRect(x: rect.midX - corridorWidth / 2, y: rect.minY + 34, width: corridorWidth, height: rect.height - 72)
+        let floor = SKShapeNode(path: isoSlabPath(rect: corridorRect, depth: 18))
+        floor.fillColor = MGSSScenePalette.corridorFill
+        floor.strokeColor = MGSSScenePalette.corridorStroke
+        floor.lineWidth = 2.4
+        floor.zPosition = 1
+        addChild(floor)
+        dynamicBaseNodes.append(floor)
+
+        let leftWall = SKShapeNode(path: sideWallPath(topLeft: CGPoint(x: corridorRect.minX, y: corridorRect.maxY), bottomLeft: CGPoint(x: corridorRect.minX, y: corridorRect.minY), depth: 16, outward: -1))
+        leftWall.fillColor = SKColor(red: 0.045, green: 0.040, blue: 0.088, alpha: 0.96)
+        leftWall.strokeColor = MGSSScenePalette.corridorStroke.withAlphaComponent(0.70)
+        leftWall.lineWidth = 1
+        leftWall.zPosition = 0.8
+        addChild(leftWall)
+        dynamicBaseNodes.append(leftWall)
+
+        let rightWall = SKShapeNode(path: sideWallPath(topLeft: CGPoint(x: corridorRect.maxX, y: corridorRect.maxY), bottomLeft: CGPoint(x: corridorRect.maxX, y: corridorRect.minY), depth: 16, outward: 1))
+        rightWall.fillColor = SKColor(red: 0.034, green: 0.032, blue: 0.070, alpha: 0.98)
+        rightWall.strokeColor = MGSSScenePalette.corridorStroke.withAlphaComponent(0.62)
+        rightWall.lineWidth = 1
+        rightWall.zPosition = 0.8
+        addChild(rightWall)
+        dynamicBaseNodes.append(rightWall)
+
+        for index in 0..<5 {
+            let y = corridorRect.minY + 42 + CGFloat(index) * max(34, corridorRect.height / 5.8)
+            let seam = SKShapeNode(path: isoDiamondPath(width: corridorWidth - 24, height: 16))
+            seam.position = CGPoint(x: rect.midX, y: y)
+            seam.fillColor = SKColor(red: 0.13, green: 0.11, blue: 0.20, alpha: 0.36)
+            seam.strokeColor = SKColor(red: 0.44, green: 0.35, blue: 0.58, alpha: 0.30)
+            seam.lineWidth = 1
+            seam.zPosition = 1.2
+            addChild(seam)
+            dynamicBaseNodes.append(seam)
+        }
+    }
+
+    private func addIsoDormRoom(_ room: DormRoom, roomRect: CGRect, isSelected: Bool) {
+        let depth: CGFloat = isSelected ? 22 : 16
+        let floor = SKShapeNode(path: isoSlabPath(rect: roomRect, depth: depth))
+        floor.fillColor = isSelected ? MGSSScenePalette.selectedRoomFill : MGSSScenePalette.roomFill
+        floor.strokeColor = isSelected ? MGSSScenePalette.selected : SKColor(red: 0.24, green: 0.20, blue: 0.35, alpha: 0.82)
+        floor.lineWidth = isSelected ? 3 : 1.4
+        floor.glowWidth = isSelected ? 3 : 0
+        floor.zPosition = isSelected ? 4 : 2
+        addChild(floor)
+        dynamicBaseNodes.append(floor)
+
+        let backWall = SKShapeNode(path: backWallPath(rect: roomRect, height: isSelected ? 28 : 22))
+        backWall.fillColor = isSelected ? SKColor(red: 0.18, green: 0.13, blue: 0.17, alpha: 0.95) : SKColor(red: 0.07, green: 0.065, blue: 0.12, alpha: 0.94)
+        backWall.strokeColor = isSelected ? MGSSScenePalette.selected.withAlphaComponent(0.55) : SKColor.white.withAlphaComponent(0.10)
+        backWall.lineWidth = 1
+        backWall.zPosition = floor.zPosition + 0.2
+        addChild(backWall)
+        dynamicBaseNodes.append(backWall)
+
+        let side = SKShapeNode(path: roomSideWallPath(rect: roomRect, room: room, depth: depth))
+        side.fillColor = SKColor(red: 0.040, green: 0.036, blue: 0.078, alpha: 0.96)
+        side.strokeColor = SKColor.white.withAlphaComponent(isSelected ? 0.18 : 0.08)
+        side.lineWidth = 1
+        side.zPosition = floor.zPosition + 0.1
+        addChild(side)
+        dynamicBaseNodes.append(side)
+
+        let bed = makeIsoBedNode(selected: isSelected)
+        bed.position = mapPosition(room.playerPosition)
+        bed.zPosition = 6
+        addChild(bed)
+        dynamicBaseNodes.append(bed)
+
+        let door = makeIsoDoorNode(selected: isSelected, damaged: isSelected && isBreakingDoor)
+        door.position = mapPosition(room.doorPosition)
+        door.zPosition = 7
+        addChild(door)
+        dynamicBaseNodes.append(door)
+
+        let name = makeLabel(isSelected ? "入住 · \(room.name)" : room.name, size: 10.2, color: isSelected ? MGSSScenePalette.selected : SKColor.white.withAlphaComponent(0.56))
+        name.position = CGPoint(x: roomRect.midX, y: roomRect.maxY - 16)
+        name.zPosition = 11
+        addChild(name)
+        dynamicBaseNodes.append(name)
+    }
+
+    private func makeIsoBedNode(selected: Bool) -> SKNode {
+        let node = SKNode()
+        let base = SKShapeNode(path: isoSlabPath(rect: CGRect(x: -34, y: -16, width: 68, height: 32), depth: 10))
+        base.fillColor = SKColor(red: 0.10, green: selected ? 0.50 : 0.34, blue: selected ? 0.86 : 0.58, alpha: 0.96)
+        base.strokeColor = MGSSScenePalette.utility.withAlphaComponent(selected ? 0.82 : 0.42)
+        base.lineWidth = 1.2
+        node.addChild(base)
+        let pillow = SKShapeNode(path: isoDiamondPath(width: 22, height: 12))
+        pillow.position = CGPoint(x: -18, y: 8)
+        pillow.fillColor = SKColor.white.withAlphaComponent(selected ? 0.86 : 0.48)
+        pillow.strokeColor = .clear
+        pillow.zPosition = 1
+        node.addChild(pillow)
+        let blanket = SKShapeNode(path: isoDiamondPath(width: 34, height: 18))
+        blanket.position = CGPoint(x: 12, y: -3)
+        blanket.fillColor = MGSSScenePalette.utility.withAlphaComponent(selected ? 0.34 : 0.18)
+        blanket.strokeColor = .clear
+        blanket.zPosition = 1
+        node.addChild(blanket)
+        return node
+    }
+
+    private func makeIsoDoorNode(selected: Bool, damaged: Bool) -> SKNode {
+        let node = SKNode()
+        let frame = SKShapeNode(rectOf: CGSize(width: 50, height: 30), cornerRadius: 4)
+        frame.fillColor = SKColor(red: 0.24, green: 0.12, blue: 0.055, alpha: 0.98)
+        frame.strokeColor = damaged ? MGSSScenePalette.danger : MGSSScenePalette.warning.withAlphaComponent(selected ? 0.92 : 0.55)
+        frame.lineWidth = damaged ? 3 : 1.8
+        frame.glowWidth = damaged ? 5 : (selected ? 2 : 0)
+        node.addChild(frame)
+        let plank = SKShapeNode(rectOf: CGSize(width: 38, height: 20), cornerRadius: 3)
+        plank.fillColor = doorColor()
+        plank.strokeColor = SKColor.black.withAlphaComponent(0.42)
+        plank.lineWidth = 1
+        plank.zPosition = 1
+        node.addChild(plank)
+        let ratio = max(0, min(1, gameState.player.doorHealth / max(gameState.player.doorMaxHealth, 1)))
+        let hpBack = SKShapeNode(rectOf: CGSize(width: 44, height: 4), cornerRadius: 2)
+        hpBack.position = CGPoint(x: 0, y: 23)
+        hpBack.fillColor = SKColor.black.withAlphaComponent(0.72)
+        hpBack.strokeColor = .clear
+        hpBack.zPosition = 2
+        node.addChild(hpBack)
+        let hp = SKShapeNode(rectOf: CGSize(width: 44 * CGFloat(ratio), height: 4), cornerRadius: 2)
+        hp.position = CGPoint(x: -22 + 22 * CGFloat(ratio), y: 23)
+        hp.fillColor = damaged ? MGSSScenePalette.danger : MGSSScenePalette.safe
+        hp.strokeColor = .clear
+        hp.zPosition = 3
+        node.addChild(hp)
+        return node
+    }
+
+    private func addGhostFaceDetails(to node: SKNode) {
+        let shadow = SKShapeNode(path: isoDiamondPath(width: 52, height: 18))
+        shadow.position = CGPoint(x: 0, y: -25)
+        shadow.fillColor = SKColor.black.withAlphaComponent(0.34)
+        shadow.strokeColor = .clear
+        shadow.zPosition = -1
+        node.addChild(shadow)
+
+        for x in [-7, 7] {
+            let eye = SKShapeNode(circleOfRadius: 3.2)
+            eye.position = CGPoint(x: CGFloat(x), y: 8)
+            eye.fillColor = SKColor.white
+            eye.strokeColor = MGSSScenePalette.danger.withAlphaComponent(0.65)
+            eye.lineWidth = 1
+            eye.zPosition = 2
+            node.addChild(eye)
+        }
+
+        let slash = SKShapeNode(rectOf: CGSize(width: 18, height: 3), cornerRadius: 1.5)
+        slash.position = CGPoint(x: 0, y: -2)
+        slash.fillColor = SKColor.black.withAlphaComponent(0.54)
+        slash.strokeColor = .clear
+        slash.zPosition = 2
+        node.addChild(slash)
+    }
+
+    private func makeIsoTurretNode(for turret: Turret) -> SKNode {
+        let node = SKNode()
+        let growth = CGFloat(turret.level * 3)
+        let base = SKShapeNode(path: isoDiamondPath(width: 36 + growth, height: 22 + growth * 0.55))
+        base.fillColor = SKColor(red: 0.08, green: 0.20, blue: 0.18, alpha: 0.96)
+        base.strokeColor = MGSSScenePalette.utility.withAlphaComponent(0.90)
+        base.lineWidth = 1.8
+        base.glowWidth = 2
+        node.addChild(base)
+        let body = SKShapeNode(rectOf: CGSize(width: 24 + growth * 0.45, height: 18 + growth * 0.35), cornerRadius: 6)
+        body.fillColor = turret.damage > 70 ? MGSSScenePalette.utility : MGSSScenePalette.safe
+        body.strokeColor = SKColor.white.withAlphaComponent(0.72)
+        body.lineWidth = 1
+        body.position = CGPoint(x: 0, y: 6)
+        body.zPosition = 1
+        node.addChild(body)
+        let barrel = SKShapeNode(rectOf: CGSize(width: 9, height: 28 + growth * 0.4), cornerRadius: 3)
+        barrel.fillColor = SKColor(red: 0.12, green: 0.14, blue: 0.16, alpha: 1.0)
+        barrel.strokeColor = SKColor.white.withAlphaComponent(0.74)
+        barrel.lineWidth = 1
+        barrel.position = CGPoint(x: 9, y: 18)
+        barrel.zRotation = -0.55
+        barrel.zPosition = 2
+        node.addChild(barrel)
+        let level = makeLabel("Lv\(turret.level)", size: 8, color: .white)
+        level.position = CGPoint(x: 0, y: -20)
+        level.zPosition = 3
+        node.addChild(level)
+        node.zPosition = 9
+        return node
+    }
+
+    private func isoSlabPath(rect: CGRect, depth: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY + depth * 0.2))
+        path.addLine(to: CGPoint(x: rect.maxX - depth, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.minY - depth * 0.42))
+        path.addLine(to: CGPoint(x: rect.minX + depth, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.midY + depth * 0.2))
+        path.closeSubpath()
+        return path
+    }
+
+    private func isoDiamondPath(width: CGFloat, height: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 0, y: height / 2))
+        path.addLine(to: CGPoint(x: width / 2, y: 0))
+        path.addLine(to: CGPoint(x: 0, y: -height / 2))
+        path.addLine(to: CGPoint(x: -width / 2, y: 0))
+        path.closeSubpath()
+        return path
+    }
+
+    private func backWallPath(rect: CGRect, height: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: rect.minX + 12, y: rect.maxY - 4))
+        path.addLine(to: CGPoint(x: rect.maxX - 12, y: rect.maxY - 4))
+        path.addLine(to: CGPoint(x: rect.maxX - 24, y: rect.maxY - height))
+        path.addLine(to: CGPoint(x: rect.minX + 24, y: rect.maxY - height))
+        path.closeSubpath()
+        return path
+    }
+
+    private func sideWallPath(topLeft: CGPoint, bottomLeft: CGPoint, depth: CGFloat, outward: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        path.move(to: topLeft)
+        path.addLine(to: CGPoint(x: topLeft.x + outward * depth, y: topLeft.y - depth * 0.42))
+        path.addLine(to: CGPoint(x: bottomLeft.x + outward * depth, y: bottomLeft.y - depth * 0.42))
+        path.addLine(to: bottomLeft)
+        path.closeSubpath()
+        return path
+    }
+
+    private func roomSideWallPath(rect: CGRect, room: DormRoom, depth: CGFloat) -> CGPath {
+        let leftSide = room.id == DormRoom.leftUpper.id || room.id == DormRoom.leftLower.id
+        let x = leftSide ? rect.minX : rect.maxX
+        return sideWallPath(topLeft: CGPoint(x: x, y: rect.maxY - 3), bottomLeft: CGPoint(x: x, y: rect.minY + 6), depth: depth, outward: leftSide ? -1 : 1)
     }
 
     private func updateThreatPath() {

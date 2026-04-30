@@ -142,13 +142,13 @@ struct ItemsView: View {
         case .doorRepair:
             return "立即修复 500 点房门耐久，破门危机时使用。"
         case .freezeGhost:
-            return "冻结猛鬼 8 秒，暂停移动和攻击。"
+            return "冻结夜影 8 秒，暂停移动和攻击。"
         case .invincible:
             return "无敌状态，短时间免疫所有伤害。"
         case .barrier:
-            return "生成房门屏障，6 秒内阻止猛鬼破门。"
+            return "生成房门屏障，6 秒内阻止夜影破门。"
         case .slowTrap:
-            return "放置陷阱，使猛鬼明显减速 6 秒。"
+            return "放置陷阱，使夜影明显减速 6 秒。"
         }
     }
 
