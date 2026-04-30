@@ -336,10 +336,10 @@ struct GameView: View {
 
     private func topResourceStrip(compact: Bool) -> some View {
         HStack(spacing: compact ? 6 : 8) {
-            resourceChip(icon: "🪙", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
-            resourceChip(icon: "⚡", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
-            resourceChip(icon: "🚪", title: "门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
-            resourceChip(icon: "🛡️", title: "炮台", value: "\(gameViewModel.turrets.count)", tint: .blue)
+            resourceChip(icon: "moon.stars.fill", title: "金币", value: "\(gameViewModel.playerGold)", tint: .yellow)
+            resourceChip(icon: "bolt.fill", title: "电力", value: "\(gameViewModel.playerElectricity)", tint: .cyan)
+            resourceChip(icon: "door.left.hand.closed", title: "房门", value: "Lv.\(gameViewModel.player.doorLevel)", tint: .orange)
+            resourceChip(icon: "shield.lefthalf.filled", title: "炮台", value: "\(gameViewModel.turrets.count)", tint: .blue)
         }
     }
 
@@ -353,16 +353,16 @@ struct GameView: View {
     private func roomChoiceDeck(compact: Bool, condensed: Bool) -> some View {
         VStack(spacing: condensed ? 7 : (compact ? 9 : 11)) {
             HStack(spacing: 8) {
-                Image(systemName: "bed.double.fill")
+                Image(systemName: "building.2.crop.circle.fill")
                     .font(.caption.bold())
                     .foregroundColor(MGSSUITheme.selection)
-                Text("选房操作区")
+                Text("选择要防守的宿舍")
                     .font(.caption.bold())
-                    .foregroundColor(.white.opacity(0.88))
+                    .foregroundColor(.white.opacity(0.90))
                 Spacer(minLength: 8)
-                Text("地图仅看位置")
+                Text("门/床/收益一眼看")
                     .font(.caption2.bold())
-                    .foregroundColor(.white.opacity(0.58))
+                    .foregroundColor(.white.opacity(0.62))
             }
 
             selectedRoomSummaryCard(compact: compact)
@@ -410,9 +410,9 @@ struct GameView: View {
                 roomSummaryPill(title: "门耐久", value: roomDoorHealthText(for: gameViewModel.selectedRoom), tint: .cyan)
             }
 
-            Text("地图只看房间位置；下方切换，确认后进入夜晚防守。")
+            Text("宿舍内靠床发育，房门是防线；入夜后优先升床、修门、补炮台。")
                 .font(.caption2)
-                .foregroundColor(.white.opacity(0.70))
+                .foregroundColor(.white.opacity(0.72))
                 .lineLimit(compact ? 2 : 1)
                 .minimumScaleFactor(0.82)
         }
@@ -444,7 +444,7 @@ struct GameView: View {
 
         return Button(action: { gameViewModel.chooseRoom(room) }) {
             HStack(spacing: 6) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                Image(systemName: isSelected ? "house.circle.fill" : "house.circle")
                     .font(.caption2.bold())
                 VStack(alignment: .leading, spacing: 1) {
                     Text(room.name)
@@ -542,16 +542,16 @@ struct GameView: View {
 
     private func gameAreaLegend(compact: Bool) -> some View {
         HStack(spacing: compact ? 5 : 7) {
-            legendChip("蓝=你/床", tint: .cyan)
-            legendChip("红=猛鬼", tint: MGSSUITheme.danger)
-            legendChip("棕=门", tint: MGSSUITheme.warning)
-            legendChip("青=炮台位", tint: MGSSUITheme.utility)
-            legendChip("黄=道具", tint: MGSSUITheme.selection)
+            legendChip("床/你", tint: .cyan)
+            legendChip("夜影", tint: MGSSUITheme.danger)
+            legendChip("房门", tint: MGSSUITheme.warning)
+            legendChip("炮台位", tint: MGSSUITheme.utility)
+            legendChip("道具", tint: MGSSUITheme.selection)
         }
         .font(.caption2.bold())
         .lineLimit(1)
         .minimumScaleFactor(0.68)
-        .accessibilityLabel("地图图例：蓝色是玩家和床，红色是猛鬼，棕色是门，青色是炮台位，黄色是道具")
+        .accessibilityLabel("地图图例：蓝色是玩家和床，红色是夜影，棕色是门，青色是炮台位，黄色是道具")
     }
 
     private func legendChip(_ text: String, tint: Color) -> some View {
@@ -577,7 +577,7 @@ struct GameView: View {
             .buttonStyle(CommandButtonStyle(tint: (recommendedCommand == .wake || recommendedCommand == .sleep) ? coachTint : (gameViewModel.player.isSleeping ? .yellow : .green), compact: compact, emphasized: recommendedCommand == .wake || recommendedCommand == .sleep))
 
             Button(action: { isShopPresented = true }) {
-                commandButtonContent(title: recommendedCommand == .shop ? "推荐：宿舍商店" : "宿舍商店", subtitle: recommendedShopAction, systemImage: "cart.fill", compact: compact)
+                commandButtonContent(title: recommendedCommand == .shop ? "推荐：升级防线" : "升级防线", subtitle: recommendedShopAction, systemImage: "building.columns.fill", compact: compact)
             }
             .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .shop ? coachTint : .blue, compact: compact, emphasized: recommendedCommand == .shop))
         }
@@ -586,7 +586,7 @@ struct GameView: View {
     private func secondaryCommandRow(compact: Bool) -> some View {
         HStack(spacing: compact ? 8 : 10) {
             Button(action: { isRulesPresented = true }) {
-                commandButtonContent(title: "道具策略", subtitle: compact ? "道具/规则" : "冻结 / 屏障 / 修门", systemImage: "sparkles", compact: compact)
+                commandButtonContent(title: "战术道具", subtitle: compact ? "冻结/屏障" : "冻结 / 屏障 / 修门", systemImage: "sparkles", compact: compact)
             }
             .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .items ? coachTint : .purple, compact: compact, emphasized: recommendedCommand == .items))
 
@@ -609,13 +609,13 @@ struct GameView: View {
 
     private var topSummaryText: String {
         if gameViewModel.ghost.isFrozen {
-            return "猛鬼已冻结，趁窗口补强防线"
+            return "夜影已冻结，趁窗口补强防线"
         }
         if isBreakingDoor && gameViewModel.doorHealth / max(gameViewModel.doorMaxHealth, 1) < 0.45 {
             return "门耐久偏低，优先修门或升门"
         }
         if isBreakingDoor {
-            return "猛鬼正在破门，优先醒来布防"
+            return "夜影正在破门，优先醒来布防"
         }
         if recommendedCommand == .repair {
             return "当前建议先修门，避免防线失守"
@@ -758,7 +758,7 @@ struct GameView: View {
     }
 
     private var activeEffectSummary: String {
-        if gameViewModel.ghost.isFrozen { return "猛鬼已冻结" }
+        if gameViewModel.ghost.isFrozen { return "夜影已冻结" }
         let active = gameViewModel.player.activeEffects.filter { $0.expiresAt > Date() }
         guard let effect = active.sorted(by: { $0.expiresAt < $1.expiresAt }).first else { return "暂无增益" }
         let seconds = max(1, Int(effect.expiresAt.timeIntervalSinceNow.rounded(.down)))
@@ -851,13 +851,18 @@ struct GameView: View {
 
     private func resourceChip(icon: String, title: String, value: String, tint: Color) -> some View {
         VStack(spacing: 2) {
-            Text(icon).font(.caption)
+            Image(systemName: icon)
+                .font(.caption.bold())
+                .foregroundColor(tint)
             Text(value).font(.caption.bold()).foregroundColor(tint).lineLimit(1).minimumScaleFactor(0.70)
             Text(title).font(.caption2).foregroundColor(.white.opacity(0.72))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
-        .background(.white.opacity(0.08))
+        .background(
+            LinearGradient(colors: [tint.opacity(0.20), Color.white.opacity(0.055)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(tint.opacity(0.35), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
