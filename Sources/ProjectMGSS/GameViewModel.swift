@@ -17,12 +17,13 @@ class GameViewModel: ObservableObject {
     @Published var phase: GamePhase
     @Published var selectedRoom: DormRoom
     @Published var wave: Int
+    @Published var lastFeedback: String?
 
     let gameScene: GameScene
     let availableRooms = DormRoom.allCases
 
     init() {
-        let initialRoom = DormRoom.leftLower
+        let initialRoom = DormRoom.rightLower
         let initialPlayer = Player(room: initialRoom)
         let initialGhost = Ghost()
         let initialTurrets: [Turret] = []
@@ -45,6 +46,7 @@ class GameViewModel: ObservableObject {
         self.phase = initialPhase
         self.selectedRoom = initialRoom
         self.wave = initialWave
+        self.lastFeedback = "推荐右下房开局：炮台位清晰，适合首局发育。"
 
         let initialState = GameState(
             player: initialPlayer,
@@ -68,7 +70,7 @@ class GameViewModel: ObservableObject {
     func startGame() {
         let room = selectedRoom
         player = Player(room: room)
-        ghost = Ghost()
+        ghost = Ghost(type: .normal, pressurePhase: .early, wave: 1, roomRisk: room.risk)
         turrets = []
         items = []
         gameTime = 0
@@ -79,6 +81,7 @@ class GameViewModel: ObservableObject {
         playerElectricity = player.electricity
         doorHealth = player.doorHealth
         doorMaxHealth = player.doorMaxHealth
+        setFeedback("已重开：默认保留 \(room.name)，确认后开始夜晚。")
         updateGameState()
     }
 
@@ -91,11 +94,12 @@ class GameViewModel: ObservableObject {
         doorMaxHealth = player.doorMaxHealth
         turrets = []
         items = []
-        ghost = Ghost()
+        ghost = Ghost(type: .normal, pressurePhase: .early, wave: 1, roomRisk: room.risk)
         gameTime = 0
         wave = 1
         gameStatus = .playing
         phase = .choosingRoom
+        setFeedback("已选择 \(room.name)：风险 \(room.risk)，收益 +\(room.rewardBonus)，门体加成 +\(Int(room.doorBonus))。")
         updateGameState()
     }
 
@@ -103,12 +107,15 @@ class GameViewModel: ObservableObject {
         guard gameStatus == .playing else { return }
         phase = .nightDefense
         player.isSleeping = true
+        ghost = Ghost(type: .normal, pressurePhase: .early, wave: wave, roomRisk: selectedRoom.risk)
+        setFeedback("夜晚开始：睡觉发育，注意四阶段压力和门耐久。")
         updateGameState()
     }
 
     func toggleSleep() {
         guard phase == .nightDefense else { return }
         player.isSleeping.toggle()
+        setFeedback(player.isSleeping ? "进入睡觉发育：金币和电力持续增长。" : "已醒来布防：及时修门、升门或补炮台。")
         updateGameState()
     }
 
@@ -117,24 +124,72 @@ class GameViewModel: ObservableObject {
     }
 
     func addTurret(at position: Position? = nil, cost: Int = 160, range: Float = 4.0, damage: Float = 45.0) {
-        guard phase == .nightDefense else { return }
-        guard playerGold >= cost else { return }
+        guard phase == .nightDefense else {
+            setFeedback("先确认入住宿舍，再建造炮台。")
+            return
+        }
+        guard playerGold >= cost else {
+            setFeedback("金币不足：建造炮台需要 \(cost) 金币。")
+            return
+        }
+
+        if turrets.count >= selectedRoom.turretSlots.count {
+            upgradeTurret()
+            return
+        }
 
         let slotIndex = min(turrets.count, selectedRoom.turretSlots.count - 1)
         let turretPosition = position ?? selectedRoom.turretSlots[max(0, slotIndex)]
         let turret = Turret(position: turretPosition, range: range, damage: damage)
         turrets.append(turret)
         playerGold -= cost
+        setFeedback("已在门前建造炮台，优先覆盖走廊入口。")
+        updateGameState()
+    }
+
+    func upgradeTurret() {
+        guard phase == .nightDefense else {
+            setFeedback("先确认入住宿舍，再升级炮台。")
+            return
+        }
+        guard !turrets.isEmpty else {
+            setFeedback("门前还没有炮台，先建造一座基础炮台。")
+            return
+        }
+        guard let targetIndex = turrets.indices.min(by: { turrets[$0].level < turrets[$1].level }) else { return }
+        let nextLevel = turrets[targetIndex].level + 1
+        let goldCost = 150 * nextLevel
+        let electricityCost = 4 * nextLevel
+        guard playerGold >= goldCost, playerElectricity >= electricityCost else {
+            setFeedback("资源不足：炮台升级需要 \(goldCost) 金币 + \(electricityCost) 电力。")
+            return
+        }
+
+        playerGold -= goldCost
+        playerElectricity -= electricityCost
+        turrets[targetIndex].level = nextLevel
+        turrets[targetIndex].damage += 28.0
+        turrets[targetIndex].range += 0.18
+        turrets[targetIndex].cooldown = max(0.62, turrets[targetIndex].cooldown - 0.06)
+        setFeedback("炮台升级到 Lv.\(nextLevel)，门口火力提升。")
         updateGameState()
     }
 
     func upgradeBed() {
         let nextLevel = player.bedLevel + 1
         let cost = 120 * nextLevel
-        guard playerGold >= cost, player.bedLevel < 5 else { return }
+        guard player.bedLevel < 5 else {
+            setFeedback("床铺已满级，继续把资源投入门和炮台。")
+            return
+        }
+        guard playerGold >= cost else {
+            setFeedback("金币不足：升级床铺需要 \(cost) 金币。")
+            return
+        }
 
         playerGold -= cost
         player.bedLevel = nextLevel
+        setFeedback("床铺升到 Lv.\(nextLevel)，金币/电力发育加快。")
         updateGameState()
     }
 
@@ -142,7 +197,14 @@ class GameViewModel: ObservableObject {
         let nextLevel = player.doorLevel + 1
         let goldCost = 180 * nextLevel
         let electricityCost = 6 * max(1, nextLevel - 1)
-        guard playerGold >= goldCost, playerElectricity >= electricityCost, player.doorLevel < 6 else { return }
+        guard player.doorLevel < 6 else {
+            setFeedback("房门已满级，保持维修即可。")
+            return
+        }
+        guard playerGold >= goldCost, playerElectricity >= electricityCost else {
+            setFeedback("资源不足：升级房门需要 \(goldCost) 金币 + \(electricityCost) 电力。")
+            return
+        }
 
         playerGold -= goldCost
         playerElectricity -= electricityCost
@@ -151,17 +213,26 @@ class GameViewModel: ObservableObject {
         doorHealth = min(doorMaxHealth, doorHealth + 560.0)
         player.doorMaxHealth = doorMaxHealth
         player.doorHealth = doorHealth
+        setFeedback("房门加固到 Lv.\(nextLevel)，最大耐久提升。")
         updateGameState()
     }
 
     func repairDoor() {
         let repairCost = 90
-        guard playerGold >= repairCost else { return }
+        guard doorHealth < doorMaxHealth else {
+            setFeedback("房门耐久已满，暂时不需要维修。")
+            return
+        }
+        guard playerGold >= repairCost else {
+            setFeedback("金币不足：修复房门需要 \(repairCost) 金币。")
+            return
+        }
 
         let repairAmount: Float = 350.0 + Float(player.doorLevel) * 100.0
         doorHealth = min(doorMaxHealth, doorHealth + repairAmount)
         playerGold -= repairCost
         player.doorHealth = doorHealth
+        setFeedback("房门已维修，当前耐久 \(Int(doorHealth))/\(Int(doorMaxHealth))。")
         updateGameState()
     }
 
@@ -217,5 +288,9 @@ class GameViewModel: ObservableObject {
             selectedRoom: selectedRoom,
             wave: wave
         )
+    }
+
+    private func setFeedback(_ message: String) {
+        lastFeedback = message
     }
 }

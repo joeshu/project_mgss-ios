@@ -295,6 +295,9 @@ struct GameView: View {
         VStack(alignment: .leading, spacing: condensed ? 4 : (compact ? 6 : 8)) {
             topHeadlineRow(compact: compact)
             topResourceStrip(compact: compact)
+            if let feedback = gameViewModel.lastFeedback, !feedback.isEmpty {
+                feedbackBanner(feedback, compact: compact)
+            }
             if !condensed {
                 topMeterStrip(compact: compact)
             }
@@ -325,6 +328,10 @@ struct GameView: View {
                 Text(gameViewModel.phase == .choosingRoom ? "选房准备" : "距天亮 \(max(0, 180 - gameViewModel.gameTime))s")
                     .font(compact ? .caption.bold() : .subheadline.bold())
                     .foregroundColor(MGSSUITheme.selection)
+                Text(pressurePhaseTitle)
+                    .font(.caption2.bold())
+                    .foregroundColor(phaseTint)
+                    .lineLimit(1)
                 Text(threatLabel)
                     .font(.caption2.bold())
                     .foregroundColor(threatColor)
@@ -346,8 +353,25 @@ struct GameView: View {
     private func topMeterStrip(compact: Bool) -> some View {
         HStack(spacing: compact ? 8 : 10) {
             meter(title: "房门", value: gameViewModel.doorHealth, total: max(gameViewModel.doorMaxHealth, 1), tint: doorMeterTint)
-            meter(title: "敌人", value: gameViewModel.ghost.health, total: max(gameViewModel.ghost.maxHealth, 1), tint: .red)
+            meter(title: gameViewModel.ghost.monsterType.displayName, value: gameViewModel.ghost.health, total: max(gameViewModel.ghost.maxHealth, 1), tint: monsterTint)
         }
+    }
+
+    private func feedbackBanner(_ text: String, compact: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: text.contains("不足") ? "exclamationmark.triangle.fill" : "info.circle.fill")
+                .font(.caption.bold())
+            Text(text)
+                .font(.caption2.bold())
+                .lineLimit(2)
+                .minimumScaleFactor(0.78)
+            Spacer(minLength: 0)
+        }
+        .foregroundColor(text.contains("不足") ? .orange : .white)
+        .padding(.horizontal, compact ? 8 : 10)
+        .padding(.vertical, compact ? 5 : 6)
+        .background((text.contains("不足") ? Color.orange : MGSSUITheme.selection).opacity(0.18))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func roomChoiceDeck(compact: Bool, condensed: Bool) -> some View {
@@ -594,8 +618,7 @@ struct GameView: View {
                 commandButtonContent(title: recommendedCommand == .repair ? "推荐：修门" : "一键修门", subtitle: repairButtonSubtitle, systemImage: "hammer.fill", compact: compact)
             }
             .buttonStyle(CommandButtonStyle(tint: recommendedCommand == .repair ? coachTint : .orange, compact: compact, emphasized: recommendedCommand == .repair))
-            .disabled(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth)
-            .opacity(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth ? 0.55 : 1)
+            .opacity(gameViewModel.playerGold < 90 || gameViewModel.doorHealth >= gameViewModel.doorMaxHealth ? 0.72 : 1)
         }
     }
 
@@ -626,15 +649,33 @@ struct GameView: View {
     private var phaseTitle: String {
         if gameViewModel.phase == .choosingRoom { return "选房后人物固定，进入宿舍防守循环" }
         if gameViewModel.player.isSleeping { return "睡觉发育中 · 金币和电力持续增长" }
-        if isBreakingDoor { return "敌人破门中 · 先修门再补炮台" }
-        return "布防窗口 · 按节奏升级床、门、炮台"
+        if isBreakingDoor { return "\(gameViewModel.ghost.monsterType.displayName)破门中 · 先修门再补炮台" }
+        return "\(pressurePhaseTitle) · 按节奏升级床、门、炮台"
+    }
+
+    private var pressurePhase: DefensePressurePhase {
+        DefensePressurePhase.phase(for: gameViewModel.gameTime)
+    }
+
+    private var pressurePhaseTitle: String {
+        gameViewModel.phase == .choosingRoom ? "四阶段压力" : pressurePhase.title
     }
 
     private var phaseTint: Color {
         if gameViewModel.phase == .choosingRoom { return .yellow }
-        if gameViewModel.gameTime < 45 { return .green }
-        if gameViewModel.gameTime < 110 { return .orange }
-        return .red
+        switch pressurePhase {
+        case .early: return .green
+        case .mid: return .orange
+        case .highPressure, .frenzy: return .red
+        }
+    }
+
+    private var monsterTint: Color {
+        switch gameViewModel.ghost.monsterType {
+        case .normal: return .red
+        case .fast: return .purple
+        case .armored: return .yellow
+        }
     }
 
     private var isBreakingDoor: Bool {
@@ -644,11 +685,12 @@ struct GameView: View {
     private var threatLabel: String {
         if gameViewModel.phase == .choosingRoom { return "威胁：未入夜" }
         if gameViewModel.ghost.isFrozen { return "威胁：冻结" }
+        let hp = "HP \(Int(max(0, gameViewModel.ghost.health)))/\(Int(gameViewModel.ghost.maxHealth))"
         switch gameViewModel.ghost.state {
-        case .scouting: return "威胁：巡查走廊"
-        case .approaching: return "威胁：逼近房门"
-        case .attacking: return "威胁：正在破门"
-        case .enraged: return "威胁：狂暴破门"
+        case .scouting: return "\(gameViewModel.ghost.monsterType.displayName)：巡查 · \(hp)"
+        case .approaching: return "\(gameViewModel.ghost.monsterType.displayName)：逼近 · \(hp)"
+        case .attacking: return "\(gameViewModel.ghost.monsterType.displayName)：破门 · \(hp)"
+        case .enraged: return "\(gameViewModel.ghost.monsterType.displayName)：狂暴 · \(hp)"
         }
     }
 

@@ -244,7 +244,11 @@ final class GameScene: SKScene {
             gameState.gameStatus = .lost
         }
 
-        if gameState.ghost.health <= 0 || gameState.gameTime >= surviveSeconds {
+        if gameState.ghost.health <= 0 {
+            defeatCurrentMonster()
+        }
+
+        if gameState.gameTime >= surviveSeconds {
             gameState.gameStatus = .won
         }
 
@@ -264,11 +268,34 @@ final class GameScene: SKScene {
 
     private func updateGhostState() {
         if gameState.ghost.position.distance(to: gameState.selectedRoom.doorPosition) <= 0.18 {
-            gameState.ghost.state = gameState.gameTime > 120 ? .enraged : .attacking
+            gameState.ghost.state = DefensePressurePhase.phase(for: gameState.gameTime) == .frenzy ? .enraged : .attacking
         } else if gameState.gameTime < 16 {
             gameState.ghost.state = .scouting
         } else {
             gameState.ghost.state = .approaching
+        }
+    }
+
+    private func defeatCurrentMonster() {
+        gameState.player.gold += 42 + gameState.wave * 9
+        if gameState.wave % 2 == 0 {
+            gameState.player.electricity += 1
+        }
+        let phase = DefensePressurePhase.phase(for: gameState.gameTime)
+        let nextType = nextMonsterType(phase: phase, wave: gameState.wave)
+        gameState.ghost = Ghost(type: nextType, pressurePhase: phase, wave: gameState.wave, roomRisk: gameState.selectedRoom.risk)
+    }
+
+    private func nextMonsterType(phase: DefensePressurePhase, wave: Int) -> MonsterType {
+        switch phase {
+        case .early:
+            return wave % 3 == 0 ? .fast : .normal
+        case .mid:
+            return wave % 3 == 0 ? .armored : (wave % 2 == 0 ? .fast : .normal)
+        case .highPressure:
+            return wave % 2 == 0 ? .armored : .fast
+        case .frenzy:
+            return [.normal, .fast, .armored][wave % 3]
         }
     }
 
@@ -305,9 +332,11 @@ final class GameScene: SKScene {
         auraNode.isHidden = !gameState.player.isSleeping || gameState.phase == .choosingRoom
         updateThreatPath()
         ghostNode.position = mapPosition(gameState.ghost.position)
-        ghostNode.fillColor = gameState.ghost.isFrozen ? .cyan : MGSSScenePalette.danger
+        ghostNode.fillColor = gameState.ghost.isFrozen ? .cyan : monsterColor(for: gameState.ghost.monsterType)
+        ghostNode.strokeColor = monsterStrokeColor(for: gameState.ghost.monsterType)
         ghostNode.isHidden = gameState.phase == .choosingRoom
-        ghostNode.setScale(gameState.ghost.state == .enraged ? 1.18 : (isBreakingDoor ? 1.08 : 1.0))
+        let typeScale: CGFloat = gameState.ghost.monsterType == .armored ? 1.18 : (gameState.ghost.monsterType == .fast ? 0.88 : 1.0)
+        ghostNode.setScale(typeScale * (gameState.ghost.state == .enraged ? 1.18 : (isBreakingDoor ? 1.08 : 1.0)))
         ghostNode.alpha = gameState.ghost.isFrozen ? 0.72 : 1.0
         ghostPressureRing.position = ghostNode.position
         ghostPressureRing.isHidden = gameState.ghost.isFrozen || gameState.phase == .choosingRoom || !isBreakingDoor
@@ -435,18 +464,33 @@ final class GameScene: SKScene {
     }
 
     private func ghostStatusText() -> String {
+        let hpText = "HP \(Int(gameState.ghost.health))/\(Int(gameState.ghost.maxHealth))"
         switch gameState.ghost.state {
-        case .scouting: return "夜影巡查"
-        case .approaching: return "夜影接近"
-        case .attacking: return "夜影破门"
-        case .enraged: return "夜影狂暴"
+        case .scouting: return "\(gameState.ghost.monsterType.displayName)巡查 · \(hpText)"
+        case .approaching: return "\(gameState.ghost.monsterType.displayName)接近 · \(hpText)"
+        case .attacking: return "\(gameState.ghost.monsterType.displayName)破门 · \(hpText)"
+        case .enraged: return "\(gameState.ghost.monsterType.displayName)狂暴 · \(hpText)"
         }
     }
 
     private func phaseName() -> String {
-        if gameState.gameTime < 45 { return "发育期" }
-        if gameState.gameTime < 110 { return "守门期" }
-        return "反击期"
+        DefensePressurePhase.phase(for: gameState.gameTime).title
+    }
+
+    private func monsterColor(for type: MonsterType) -> SKColor {
+        switch type {
+        case .normal: return MGSSScenePalette.danger
+        case .fast: return SKColor(red: 0.95, green: 0.28, blue: 1.0, alpha: 1.0)
+        case .armored: return SKColor(red: 0.82, green: 0.74, blue: 0.60, alpha: 1.0)
+        }
+    }
+
+    private func monsterStrokeColor(for type: MonsterType) -> SKColor {
+        switch type {
+        case .normal: return SKColor(red: 1.0, green: 0.42, blue: 0.42, alpha: 1.0)
+        case .fast: return SKColor(red: 0.45, green: 0.85, blue: 1.0, alpha: 1.0)
+        case .armored: return SKColor(red: 1.0, green: 0.90, blue: 0.55, alpha: 1.0)
+        }
     }
 
     private func doorTipText() -> String {

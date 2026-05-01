@@ -25,6 +25,29 @@ enum GamePhase: String, Codable {
     case nightDefense = "NIGHT_DEFENSE"
 }
 
+enum DefensePressurePhase: String, Codable, CaseIterable {
+    case early = "EARLY"
+    case mid = "MID"
+    case highPressure = "HIGH_PRESSURE"
+    case frenzy = "FRENZY"
+
+    var title: String {
+        switch self {
+        case .early: return "前期试探"
+        case .mid: return "中期压迫"
+        case .highPressure: return "高压破门"
+        case .frenzy: return "狂暴终局"
+        }
+    }
+
+    static func phase(for gameTime: Int) -> DefensePressurePhase {
+        if gameTime < 45 { return .early }
+        if gameTime < 95 { return .mid }
+        if gameTime < 145 { return .highPressure }
+        return .frenzy
+    }
+}
+
 // MARK: - 房间选择
 struct DormRoom: Codable, Identifiable, Equatable, CaseIterable {
     var id: String
@@ -97,7 +120,7 @@ struct Player: Codable {
     var doorLevel: Int
     var activeEffects: [ActiveEffect]
 
-    init(room: DormRoom = .leftLower) {
+    init(room: DormRoom = .rightLower) {
         self.position = room.playerPosition
         self.isSleeping = false
         self.gold = 70
@@ -113,7 +136,46 @@ struct Player: Codable {
 }
 
 // MARK: - 敌人
+enum MonsterType: String, Codable, CaseIterable {
+    case normal = "NORMAL"
+    case fast = "FAST"
+    case armored = "ARMORED"
+
+    var displayName: String {
+        switch self {
+        case .normal: return "巡夜影"
+        case .fast: return "疾行影"
+        case .armored: return "重甲影"
+        }
+    }
+
+    var hpMultiplier: Float {
+        switch self {
+        case .normal: return 1.0
+        case .fast: return 0.72
+        case .armored: return 1.55
+        }
+    }
+
+    var speedMultiplier: Float {
+        switch self {
+        case .normal: return 1.0
+        case .fast: return 1.45
+        case .armored: return 0.78
+        }
+    }
+
+    var attackMultiplier: Float {
+        switch self {
+        case .normal: return 1.0
+        case .fast: return 0.82
+        case .armored: return 1.22
+        }
+    }
+}
+
 struct Ghost: Codable {
+    var monsterType: MonsterType
     var position: Position
     var state: GhostState
     var health: Float
@@ -130,13 +192,36 @@ struct Ghost: Codable {
         case enraged = "ENRAGED"
     }
 
-    init() {
+    init(type: MonsterType = .normal, pressurePhase: DefensePressurePhase = .early, wave: Int = 1, roomRisk: Int = 1) {
+        self.monsterType = type
         self.position = Position(x: 3.0, y: 5.7)
         self.state = .scouting
-        self.health = 1500.0
-        self.maxHealth = 1500.0
-        self.speed = 3.15
-        self.attackPower = 40.0
+        let phaseHp: Float
+        let phaseSpeed: Float
+        let phaseAttack: Float
+        switch pressurePhase {
+        case .early:
+            phaseHp = 0
+            phaseSpeed = 0
+            phaseAttack = 0
+        case .mid:
+            phaseHp = 260
+            phaseSpeed = 0.16
+            phaseAttack = 10
+        case .highPressure:
+            phaseHp = 620
+            phaseSpeed = 0.30
+            phaseAttack = 23
+        case .frenzy:
+            phaseHp = 1050
+            phaseSpeed = 0.48
+            phaseAttack = 38
+        }
+        let baseHealth = 1180.0 + Float(wave * 85) + Float(roomRisk * 55) + phaseHp
+        self.maxHealth = baseHealth * type.hpMultiplier
+        self.health = self.maxHealth
+        self.speed = (2.95 + Float(wave) * 0.05 + phaseSpeed) * type.speedMultiplier
+        self.attackPower = (34.0 + Float(wave * 4) + Float(roomRisk * 3) + phaseAttack) * type.attackMultiplier
         self.isFrozen = false
         self.frozenUntil = Date()
     }
